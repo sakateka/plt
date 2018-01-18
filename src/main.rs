@@ -2,6 +2,7 @@
 extern crate clap;
 
 mod args;
+mod cfg;
 
 fn main() {
     let app = args::build_app("bmper");
