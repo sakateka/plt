@@ -2,7 +2,7 @@ use std::io::{self, BufRead, BufReader};
 use std::fs::File;
 use std::collections::HashSet;
 
-#[derive(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash, PartialEq, Clone)]
 pub struct Nonterminal {
     pub symbol: char,
 }
@@ -16,7 +16,7 @@ impl Nonterminal {
     }
 }
 
-#[derive(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash, PartialEq, Clone)]
 pub struct Terminal {
     pub symbol: char,
 }
@@ -30,13 +30,23 @@ impl Terminal {
 }
 
 
-#[derive(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash, PartialEq, Clone)]
 pub enum Symbol {
     N(Nonterminal),
     T(Terminal),
 }
 
-#[derive(Debug, Hash, PartialEq)]
+impl Symbol {
+    pub fn new(c: char) -> Symbol {
+        if c.is_lowercase() {
+            Symbol::T(Terminal::new(c))
+        } else {
+            Symbol::N(Nonterminal::new(c))
+        }
+    }
+}
+
+#[derive(Debug, Hash, PartialEq, Clone)]
 pub struct Production {
     pub left: Nonterminal,
     pub right: Vec<Symbol>,
@@ -44,6 +54,16 @@ pub struct Production {
 
 impl Eq for Production {}
 
+impl Production {
+    pub fn new(l: Nonterminal, r: Vec<Symbol>) -> Production {
+        Production {
+            left: l,
+            right: r,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct CFG {
     pub start: Nonterminal,
     pub productions: HashSet<Production>,
@@ -52,28 +72,48 @@ pub struct CFG {
 
 impl CFG {
     pub fn parse(inputPath: &str) -> io::Result<CFG> {
-        let mut cfg: CFG;
-        let mut file = BufReader::new(
+        let file = BufReader::new(
             File::open(inputPath).expect(
                 format!("opening file {}", inputPath).as_ref()
             )
         );
+        let mut cfg: CFG;
         let mut it = file.lines();
-        match it.next() {
-            Some(s) => {
-                println!("{:?}", s);
-            }
-            None => {
-                return Err(io::Error::new(io::ErrorKind::Other, "Don't see any rule",));
-            }
+        if let Some(first_line) = it.next() {
+            let text = first_line.unwrap();
+            let first_productions = CFG::parse_production(text.as_str())?;
+            cfg = CFG{
+                start: first_productions[0].left.clone(),
+                categories: vec![first_productions[0].left.clone()].iter().cloned().collect(),
+                productions: first_productions.iter().cloned().collect(),
+            };
+            
+        } else {
+            return Err(io::Error::new(io::ErrorKind::Other, "Don't see any rule",));
         }
         for line in it {
             println!("{:?}", line);
         }
-        Ok(CFG{
-            start: Nonterminal::new('a'),
-            productions: HashSet::new(),
-            categories: HashSet::new(),
-        })
+        Ok(cfg)
+    }
+    pub fn parse_production(line: &str) -> io::Result<Vec<Production>> {
+        let mut productions = Vec::new();
+        let rule: Vec<&str> = line.split("->").map(|x| x.trim()).collect();
+        if rule.len() != 2 || rule[0].len() > 1 {
+            return Err(io::Error::new(io::ErrorKind::Other, format!("Bad rule: {}", line)));
+        }
+        let start = rule[0].chars().next().unwrap();
+        if start.is_lowercase() {
+            return Err(io::Error::new(io::ErrorKind::Other, format!("Terminal symbol at RHS: {}", line)));
+        }
+        for lhs in rule[1].split('|').map(|x| x.trim()) {
+            productions.push(
+                Production::new(
+                    Nonterminal::new(start),
+                    lhs.chars().map(|x| Symbol::new(x)).collect(),
+                )
+            );
+        }
+        Ok(productions)
     }
 }
