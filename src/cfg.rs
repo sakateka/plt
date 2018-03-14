@@ -67,15 +67,12 @@ impl Production {
 pub struct CFG {
     pub start: Nonterminal,
     pub productions: HashSet<Production>,
-    pub categories: HashSet<Nonterminal>,
 }
 
 impl CFG {
-    pub fn parse(inputPath: &str) -> io::Result<CFG> {
+    pub fn parse(input_path: &str) -> io::Result<CFG> {
         let file = BufReader::new(
-            File::open(inputPath).expect(
-                format!("opening file {}", inputPath).as_ref()
-            )
+            File::open(input_path).expect(&format!("opening file {}", input_path))
         );
         let mut cfg: CFG;
         let mut it = file.lines();
@@ -84,7 +81,6 @@ impl CFG {
             let first_productions = CFG::parse_production(text.as_str())?;
             cfg = CFG{
                 start: first_productions[0].left.clone(),
-                categories: vec![first_productions[0].left.clone()].iter().cloned().collect(),
                 productions: first_productions.iter().cloned().collect(),
             };
             
@@ -92,7 +88,8 @@ impl CFG {
             return Err(io::Error::new(io::ErrorKind::Other, "Don't see any rule",));
         }
         for line in it {
-            println!("{:?}", line);
+            let add_productions = CFG::parse_production(&line.unwrap()).unwrap();
+            cfg.productions.extend(add_productions.iter().cloned());
         }
         Ok(cfg)
     }
@@ -115,5 +112,68 @@ impl CFG {
             );
         }
         Ok(productions)
+    }
+
+    pub fn simplify(&self) -> CFG {
+        self.remove_useless_rules()
+            .remove_epsilon_rules()
+            .remove_unit_rules()
+    }
+
+    pub fn remove_useless_rules(&self) -> CFG {
+        let mut usefull_nonterminals: HashSet<Nonterminal> = HashSet::new();
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for rule in &self.productions {
+                if rule.right.len() == 0 {
+                    // epsilon rule
+                    if usefull_nonterminals.insert(rule.left.clone()) {
+                        changed = true;
+                    }
+                    continue;
+                }
+                for sym in &rule.right {
+                    match sym {
+                        &Symbol::T(_) => {
+                            if usefull_nonterminals.insert(rule.left.clone()) {
+                                changed = true;
+                            }
+                        },
+                        &Symbol::N(ref n) => {
+                            if let Some(_) = usefull_nonterminals.get(n) {
+                                if usefull_nonterminals.insert(rule.left.clone()) {
+                                    changed = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let mut cfg = CFG {
+            start: self.start.clone(),
+            productions: HashSet::new(),
+        };
+        for rule in &self.productions {
+            if let Some(_) = usefull_nonterminals.get(&rule.left) {
+                cfg.productions.insert(rule.clone());
+            }
+        }
+        cfg
+    }
+
+    pub fn remove_epsilon_rules(&self) -> CFG {
+        CFG {
+            start: self.start.clone(),
+            productions: self.productions.clone(),
+        }
+    }
+
+    pub fn remove_unit_rules(&self) -> CFG {
+        CFG {
+            start: self.start.clone(),
+            productions: self.productions.clone(),
+        }
     }
 }

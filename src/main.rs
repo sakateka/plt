@@ -9,6 +9,6 @@ fn main() {
     if let Some(matches) = app.subcommand_matches("gen") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = cfg::CFG::parse(grammar).unwrap();
-        println!("Yep! {:?}", cfg);
+        println!("Yep Simplify! {:?}\n", cfg.simplify());
     }
 }
