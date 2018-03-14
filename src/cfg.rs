@@ -183,9 +183,9 @@ impl CFG {
 
     pub fn simplify(&self) -> CFG {
         self.remove_epsilon_rules()
+            .remove_unit_rules()
             .remove_useless_rules()
             .remove_unreachable_rules()
-            .remove_unit_rules()
     }
 
     pub fn remove_epsilon_rules(&self) -> CFG {
