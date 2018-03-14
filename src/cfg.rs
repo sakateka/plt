@@ -1,11 +1,14 @@
+use std::fmt;
 use std::io::{self, BufRead, BufReader};
 use std::fs::File;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+use itertools::join;
 
 #[derive(Debug, Hash, PartialEq, Clone)]
 pub struct Nonterminal {
     pub symbol: char,
 }
+
 impl Eq for Nonterminal {}
 
 impl Nonterminal {
@@ -44,6 +47,24 @@ impl Symbol {
             Symbol::N(Nonterminal::new(c))
         }
     }
+    pub fn get_symbol(&self) -> char {
+        match self {
+            &Symbol::T(ref x) => x.symbol,
+            &Symbol::N(ref x) => x.symbol,
+        }
+    }
+    pub fn is_nonterminal(&self) -> bool {
+        match self {
+            &Symbol::T(_) => false,
+            &Symbol::N(_) => true,
+        }
+    }
+}
+
+impl fmt::Display for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.get_symbol())
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Clone)]
@@ -68,30 +89,69 @@ pub struct CFG {
     pub start: Nonterminal,
     pub productions: HashSet<Production>,
 }
+impl fmt::Display for CFG {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut rules: HashMap<Nonterminal, Vec<String>> = HashMap::new();
+        let mut prods: Vec<&Production> = self.productions.iter().collect();
+        prods.sort_by(|a, b| a.left.symbol.cmp(&b.left.symbol));
+        for rule in &prods {
+            let mut chars = match rules.get(&rule.left) {
+                Some(s) => s.clone(),
+                None => Vec::new(),
+            };
+            chars.push(join(&rule.right, ""));
+            rules.insert(rule.left.clone(), chars);
+        }
+        if let Some(mut start) = rules.remove(&self.start) {
+            start.sort();
+            if let Err(e) = write!(f, "{} -> {}\n", self.start.symbol, join(start, " | ")) {
+                return Err(e)
+            }
+        } else {
+            return Err(fmt::Error{})
+        }
+        for rule in &prods {
+            if let Some(mut val) = rules.remove(&rule.left) {
+                val.sort();
+                if let Err(e) = write!(f, "{} -> {}\n", rule.left.symbol, join(val, " | ")) {
+                    return Err(e)
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
 impl CFG {
     pub fn parse(input_path: &str) -> io::Result<CFG> {
-        let file = BufReader::new(
-            File::open(input_path).expect(&format!("opening file {}", input_path))
-        );
-        let mut cfg: CFG;
-        let mut it = file.lines();
-        if let Some(first_line) = it.next() {
-            let text = first_line.unwrap();
-            let first_productions = CFG::parse_production(text.as_str())?;
-            cfg = CFG{
-                start: first_productions[0].left.clone(),
-                productions: first_productions.iter().cloned().collect(),
-            };
-            
-        } else {
-            return Err(io::Error::new(io::ErrorKind::Other, "Don't see any rule",));
-        }
-        for line in it {
-            let add_productions = CFG::parse_production(&line.unwrap()).unwrap();
+        let file = BufReader::new(File::open(input_path)?);
+        CFG::parse_from_reader(file)
+    }
+    pub fn parse_from_reader<R: ?Sized + BufRead>(r: R) -> io::Result<CFG>
+        where R: ::std::marker::Sized {
+
+        let mut cfg = CFG{
+            start: Nonterminal::new('?'),
+            productions: HashSet::new(),
+        };
+        for line in r.lines() {
+            let mut text = line.unwrap();
+            let rule = text.trim();
+            if rule.len() == 0 || rule.starts_with('#') {
+                continue
+            }
+            let add_productions = CFG::parse_production(&rule).unwrap();
+            if cfg.productions.len() == 0 {
+                // first valid rule
+                cfg.start = add_productions[0].left.clone();
+            }
             cfg.productions.extend(add_productions.iter().cloned());
         }
-        Ok(cfg)
+        if cfg.productions.len() == 0 {
+            Err(io::Error::new(io::ErrorKind::Other, "Don't see any rule"))
+        } else {
+            Ok(cfg)
+        }
     }
     pub fn parse_production(line: &str) -> io::Result<Vec<Production>> {
         let mut productions = Vec::new();
@@ -116,6 +176,7 @@ impl CFG {
 
     pub fn simplify(&self) -> CFG {
         self.remove_useless_rules()
+            //.remove_unreachable_rules()
             .remove_epsilon_rules()
             .remove_unit_rules()
     }
@@ -132,20 +193,16 @@ impl CFG {
                         changed = true;
                     }
                     continue;
-                }
-                for sym in &rule.right {
-                    match sym {
-                        &Symbol::T(_) => {
-                            if usefull_nonterminals.insert(rule.left.clone()) {
-                                changed = true;
-                            }
-                        },
-                        &Symbol::N(ref n) => {
-                            if let Some(_) = usefull_nonterminals.get(n) {
-                                if usefull_nonterminals.insert(rule.left.clone()) {
-                                    changed = true;
-                                }
-                            }
+                } else {
+                    let right_nonterm_set: HashSet<Nonterminal> = rule.right.iter().cloned()
+                        .filter(|x| x.is_nonterminal())
+                        .map(|x| match x { Symbol::N(n) => n, _ => unreachable!() })
+                        .collect();
+                    if right_nonterm_set.len() == 0 ||
+                        right_nonterm_set.is_subset(&usefull_nonterminals) {
+                        // if rule contains only terminals or all Nonterminals can be generated
+                        if usefull_nonterminals.insert(rule.left.clone()) {
+                            changed = true;
                         }
                     }
                 }
@@ -156,7 +213,12 @@ impl CFG {
             productions: HashSet::new(),
         };
         for rule in &self.productions {
-            if let Some(_) = usefull_nonterminals.get(&rule.left) {
+            let right_nonterm_set: HashSet<Nonterminal> = rule.right.iter().cloned()
+                .filter(|x| x.is_nonterminal())
+                .map(|x| match x { Symbol::N(n) => n, _ => unreachable!() })
+                .collect();
+            let some = usefull_nonterminals.get(&rule.left);
+            if some.is_some() && right_nonterm_set.is_subset(&usefull_nonterminals) {
                 cfg.productions.insert(rule.clone());
             }
         }
@@ -175,5 +237,35 @@ impl CFG {
             start: self.start.clone(),
             productions: self.productions.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use self::super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn remove_useless() {
+        let test_rules = r#"
+            S -> aAB | E
+            A -> aA | bB
+            B -> ACb| b
+            C -> A | bA | cC | aE
+            D -> a | c | Fb
+            E -> cE | aE | Eb | ED | FG
+            F -> BC | EC | AC
+            G -> Ga | Gb
+        "#;
+        let expected = indoc!(r#"
+            S -> aAB
+            A -> aA | bB
+            B -> ACb | b
+            C -> A | bA | cC
+            D -> Fb | a | c
+            F -> AC | BC
+        "#);
+        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
+        assert_eq!(format!("{}", cfg.remove_useless_rules()), expected);
     }
 }
