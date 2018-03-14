@@ -1,7 +1,5 @@
 extern crate clap;
 extern crate itertools;
-#[macro_use]
-extern crate indoc;
 
 mod args;
 mod cfg;

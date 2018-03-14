@@ -18,6 +18,12 @@ impl Nonterminal {
         }
     }
 }
+impl fmt::Display for Nonterminal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.symbol)
+    }
+}
+
 
 #[derive(Debug, Hash, PartialEq, Clone)]
 pub struct Terminal {
@@ -38,6 +44,7 @@ pub enum Symbol {
     N(Nonterminal),
     T(Terminal),
 }
+impl Eq for Symbol {}
 
 impl Symbol {
     pub fn new(c: char) -> Symbol {
@@ -175,10 +182,45 @@ impl CFG {
     }
 
     pub fn simplify(&self) -> CFG {
-        self.remove_useless_rules()
-            //.remove_unreachable_rules()
-            .remove_epsilon_rules()
+        self.remove_epsilon_rules()
+            .remove_useless_rules()
+            .remove_unreachable_rules()
             .remove_unit_rules()
+    }
+
+    pub fn remove_epsilon_rules(&self) -> CFG {
+        let mut new_rules: HashSet<Production> = HashSet::new();
+        let mut nullable: HashSet<Nonterminal> = HashSet::new();
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for rule in &self.productions {
+                if rule.right.len() == 0 {
+                    nullable.insert(rule.left.clone());
+                }
+                for s in &rule.right {
+                    if let &Symbol::N(ref n) = s {
+                        if nullable.get(n).is_some() {
+                            if nullable.insert(rule.left.clone()) {
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        println!("Nullable: -> {}", join(nullable, " "));
+        CFG {
+            start: self.start.clone(),
+            productions: self.productions.clone(),
+        }
+    }
+
+    pub fn remove_unit_rules(&self) -> CFG {
+        CFG {
+            start: self.start.clone(),
+            productions: self.productions.clone(),
+        }
     }
 
     pub fn remove_useless_rules(&self) -> CFG {
@@ -189,9 +231,6 @@ impl CFG {
             for rule in &self.productions {
                 if rule.right.len() == 0 {
                     // epsilon rule
-                    if usefull_nonterminals.insert(rule.left.clone()) {
-                        changed = true;
-                    }
                     continue;
                 } else {
                     let right_nonterm_set: HashSet<Nonterminal> = rule.right.iter().cloned()
@@ -225,18 +264,34 @@ impl CFG {
         cfg
     }
 
-    pub fn remove_epsilon_rules(&self) -> CFG {
-        CFG {
-            start: self.start.clone(),
-            productions: self.productions.clone(),
+    pub fn remove_unreachable_rules(&self) -> CFG {
+        let mut reachable_symbols: HashSet<Symbol> = HashSet::new();
+        reachable_symbols.insert(Symbol::N(self.start.clone()));
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for rule in &self.productions {
+                if reachable_symbols.get(&Symbol::N(rule.left.clone())).is_some() {
+                    for s in &rule.right {
+                        if reachable_symbols.insert(s.clone()) {
+                            changed = true;
+                        }
+                    }
+                }
+            }
         }
-    }
-
-    pub fn remove_unit_rules(&self) -> CFG {
-        CFG {
+        let mut cfg = CFG {
             start: self.start.clone(),
-            productions: self.productions.clone(),
+            productions: HashSet::new(),
+        };
+        for rule in &self.productions {
+            let mut right_set: HashSet<Symbol> = rule.right.iter().cloned().collect();
+            right_set.insert(Symbol::N(rule.left.clone()));
+            if right_set.is_subset(&reachable_symbols) {
+                cfg.productions.insert(rule.clone());
+            }
         }
+        cfg
     }
 }
 
@@ -257,15 +312,62 @@ mod tests {
             F -> BC | EC | AC
             G -> Ga | Gb
         "#;
-        let expected = indoc!(r#"
-            S -> aAB
-            A -> aA | bB
-            B -> ACb | b
-            C -> A | bA | cC
-            D -> Fb | a | c
-            F -> AC | BC
-        "#);
+        let expected = format!("{}\n", join(vec![
+            "S -> aAB",
+            "A -> aA | bB",
+            "B -> ACb | b",
+            "C -> A | bA | cC",
+            "D -> Fb | a | c",
+            "F -> AC | BC"
+        ], "\n"));
         let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
         assert_eq!(format!("{}", cfg.remove_useless_rules()), expected);
+    }
+
+    #[test]
+    fn remove_unreachable() {
+        let test_rules = r#"
+            S -> aAB | E
+            A -> aA | bB
+            B -> ACb| b
+            C -> A | bA | cC | aE
+            D -> a | c | Fb
+            E -> cE | aE | Eb | ED | FG
+            F -> BC | EC | AC
+            G -> Ga | Gb
+        "#;
+        let expected = format!("{}\n", join(vec![
+            "S -> aAB",
+            "A -> aA | bB",
+            "B -> ACb | b",
+            "C -> A | bA | cC",
+        ], "\n"));
+        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap()
+            .remove_useless_rules();
+        assert_eq!(format!("{}", cfg.remove_unreachable_rules()), expected);
+    }
+
+    #[test]
+    fn remove_epsilon() {
+        let test_rules = r#"
+            S -> aAB | E
+            A -> aA | bB
+            B -> ACb| b
+            C -> A | bA | cC | aE
+            D -> a | c | Fb
+            E -> cE | aE | Eb | ED | FG
+            F -> BC | EC | AC
+            G -> Ga | Gb
+        "#;
+        let expected = format!("{}\n", join(vec![
+            "S -> aAB",
+            "A -> aA | bB",
+            "B -> ACb | b",
+            "C -> A | bA | cC",
+        ], "\n"));
+        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap()
+            .remove_useless_rules()
+            .remove_unreachable_rules();
+        assert_eq!(format!("{}", cfg.remove_epsilon_rules()), expected);
     }
 }
