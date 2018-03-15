@@ -6,4 +6,3 @@ authors = ["Sergey Kacheev <uo0@ya.ru>"]
 [dependencies]
 clap = "~2.29.0"
 itertools = "0.7.7"
-regex = "0.2"
