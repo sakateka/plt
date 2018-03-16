@@ -295,6 +295,12 @@ impl CFG {
     }
 
     pub fn remove_unit_rules(&self) -> CFG {
+        let unit_sets: HashMap<Nonterminal, HashSet<Nonterminal>> = HashMap::new();
+        for nonterm in &self.variables {
+            for rule in &self.productions {
+
+            }
+        }
         CFG::new(self.start.clone(), self.productions.clone())
     }
 
