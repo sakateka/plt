@@ -30,7 +30,7 @@ fn main() {
         let generated = GeneratedSet(
             Generator::new(cfg, min, max, left).collect::<HashSet<Vec<cfg::Symbol>>>(),
         );
-        println!("{}", generated);
+        print!("{}", generated);
     } else if let Some(matches) = app.subcommand_matches("simplify") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::parse(grammar).unwrap();
