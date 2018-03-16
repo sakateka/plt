@@ -11,17 +11,27 @@ pub struct Generator {
 }
 
 #[derive(Debug)]
+pub struct GeneratedItem<'a> (pub &'a Vec<cfg::Symbol>);
+
+impl<'a> fmt::Display for GeneratedItem<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .fold(String::new(), |acc, ref arg| acc + arg.to_string().as_ref())
+        )
+    }
+}
+
+#[derive(Debug)]
 pub struct GeneratedSet(pub HashSet<Vec<cfg::Symbol>>);
 
 impl fmt::Display for GeneratedSet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for item in &self.0 {
-            write!(
-                f,
-                "{}\n",
-                item.iter()
-                    .fold(String::new(), |acc, ref arg| acc + arg.to_string().as_ref())
-            ).unwrap();
+            write!(f, "{}\n", GeneratedItem(item)).unwrap();
         }
         Ok(())
     }

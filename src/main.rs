@@ -9,7 +9,7 @@ mod generator;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
-use generator::{GeneratedSet, Generator};
+use generator::{GeneratedItem, GeneratedSet, Generator};
 use cfg::CFG;
 
 fn main() {
@@ -27,10 +27,16 @@ fn main() {
             max = value_t_or_exit!(matches, "len-max", u32);
         }
         let left = !matches.is_present("right");
-        let generated = GeneratedSet(
-            Generator::new(cfg, min, max, left).collect::<HashSet<Vec<cfg::Symbol>>>(),
-        );
-        print!("{}", generated);
+        let gen = Generator::new(cfg, min, max, left);
+        if matches.is_present("all") {
+            for seq in gen {
+                print!("{}\n", GeneratedItem(&seq));
+            }
+        } else {
+            print!("{}", GeneratedSet(
+                gen.collect::<HashSet<Vec<cfg::Symbol>>>()
+            ));
+        }
     } else if let Some(matches) = app.subcommand_matches("simplify") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::parse(grammar).unwrap();

@@ -27,6 +27,12 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Maximum sequence lenght (default 8)"),
                 )
                 .arg(
+                    Arg::with_name("all")
+                        .long("all")
+                        .short("a")
+                        .help("Show all sequences together with duplicates"),
+                )
+                .arg(
                     Arg::with_name("CFG")
                         .help("Context-Free Grammar rules file to use")
                         .required(true)
