@@ -1,11 +1,11 @@
 use std::fmt;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use cfg;
 
 pub struct Generator {
     left: bool,
     rules: HashMap<cfg::Symbol, Vec<Vec<cfg::Symbol>>>,
-    queue: VecDeque<Vec<cfg::Symbol>>,
+    queue: HashSet<Vec<cfg::Symbol>>,
     min_len: usize,
     max_len: usize,
 }
@@ -38,10 +38,10 @@ impl Generator {
             symbols.push(rule.right.clone());
             rules.insert(cfg::Symbol::N(rule.left.clone()), symbols);
         }
-        let mut queue = VecDeque::new();
+        let mut queue = HashSet::new();
         for cases in rules.get(&cfg::Symbol::N(grammar.start)) {
             for case in cases {
-                queue.push_back(case.clone());
+                queue.insert(case.clone());
             }
         }
         Generator {
@@ -58,7 +58,12 @@ impl Iterator for Generator {
     type Item = Vec<cfg::Symbol>;
 
     fn next(&mut self) -> Option<Vec<cfg::Symbol>> {
-        while let Some(next_item) = self.queue.pop_front() {
+        loop {
+            let next_item = match self.queue.iter().next() {
+                Some(item) => item.to_vec(),
+                None => return None,
+            };
+            self.queue.remove(&next_item);
             if next_item.is_empty() {
                 return Some(next_item);
             }
@@ -87,12 +92,13 @@ impl Iterator for Generator {
                     if next_item.len() > idx + 1 {
                         new_seq.extend(next_item[idx + 1..].to_vec());
                     }
-                    self.queue.push_back(new_seq);
+                    if new_seq.len() <= self.max_len {
+                        self.queue.insert(new_seq);
+                    }
                 }
             } else {
                 unreachable!() // unreachable Nonterminal symbol ???
             }
         }
-        None
     }
 }
