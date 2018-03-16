@@ -45,5 +45,25 @@ fn main() {
         output_stream
             .write_fmt(format_args!("{}", cfg.simplify()))
             .unwrap();
+    } else if let Some(matches) = app.subcommand_matches("parse") {
+        let grammar = matches.value_of("CFG").unwrap();
+        let cfg = CFG::parse(grammar).unwrap();
+        print!("Parsed CFG\n{}", cfg);
+        print!("Remove epsilon\n{}", cfg.remove_epsilon_rules());
+        if matches.is_present("verbose") {
+            println!("{:?}\n", cfg.remove_epsilon_rules());
+        }
+        print!("Remove units\n{}", cfg.remove_unit_rules());
+        if matches.is_present("verbose") {
+            println!("{:?}\n", cfg.remove_unit_rules());
+        }
+        print!("Remove useless\n{}", cfg.remove_useless_rules());
+        if matches.is_present("verbose") {
+            println!("{:?}\n", cfg.remove_useless_rules());
+        }
+        print!("Remove unreachable\n{}", cfg.remove_unreachable_rules());
+        if matches.is_present("verbose") {
+            println!("{:?}\n", cfg.remove_unreachable_rules());
+        }
     }
 }
