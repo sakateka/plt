@@ -8,6 +8,16 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
         .subcommand(
             SubCommand::with_name("gen")
                 .about("Sequence generator by CFG")
+                .arg(Arg::with_name("len-min")
+                    .long("len-min")
+                    .takes_value(true)
+                    .help("Minimum sequence lenght (default 0)")
+                )
+                .arg(Arg::with_name("len-max")
+                    .long("len-max")
+                    .takes_value(true)
+                    .help("Maximum sequence lenght (default 8)")
+                )
                 .arg(
                     Arg::with_name("CFG")
                         .help("Context-Free Grammar rules file to use")

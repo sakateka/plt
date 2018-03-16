@@ -302,7 +302,6 @@ impl CFG {
     }
 
     pub fn remove_unit_rules(&self) -> CFG {
-        println!("{:?}", self.variables);
         let mut unit_sets = self.variables
             .iter()
             .cloned()
