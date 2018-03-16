@@ -7,24 +7,43 @@ mod cfg;
 mod generator;
 
 use std::collections::HashSet;
-use generator::Generator;
+use std::fs::File;
+use std::io::Write;
+use generator::{GeneratedSet, Generator};
+use cfg::CFG;
 
 fn main() {
     let app = args::build_app("plt");
 
     if let Some(matches) = app.subcommand_matches("gen") {
         let grammar = matches.value_of("CFG").unwrap();
-        let cfg = cfg::CFG::parse(grammar).unwrap();
-        let mut len_min: u32 = 0; // pixels
+        let cfg = CFG::parse(grammar).unwrap();
+        let mut min: u32 = 0;
         if matches.is_present("len-min") {
-            len_min = value_t_or_exit!(matches, "len-min", u32);
+            min = value_t_or_exit!(matches, "len-min", u32);
         }
-        let mut len_max: u32 = 8; // pixels
+        let mut max: u32 = 8;
         if matches.is_present("len-max") {
-            len_max = value_t_or_exit!(matches, "len-max", u32);
+            max = value_t_or_exit!(matches, "len-max", u32);
         }
-        let generated = Generator::new(cfg, len_min, len_max)
-            .collect::<HashSet<Vec<cfg::Symbol>>>();
-        println!("Yep!\n {:?}\n", generated);
+        let left = !matches.is_present("right");
+        let generated = GeneratedSet(
+            Generator::new(cfg, min, max, left).collect::<HashSet<Vec<cfg::Symbol>>>(),
+        );
+        println!("{}", generated);
+    } else if let Some(matches) = app.subcommand_matches("simplify") {
+        let grammar = matches.value_of("CFG").unwrap();
+        let cfg = CFG::parse(grammar).unwrap();
+        let output = matches.value_of("OUT").unwrap_or_else(|| "/dev/stdout");
+        let mut output_stream = File::create(output).unwrap();
+        if matches.is_present("verbose") {
+            println!("Output to {}", output);
+            output_stream
+                .write_fmt(format_args!("Yep Simplify!\n{}\nTo:\n", cfg,))
+                .unwrap();
+        }
+        output_stream
+            .write_fmt(format_args!("{}", cfg.simplify()))
+            .unwrap();
     }
 }

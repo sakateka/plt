@@ -4,7 +4,7 @@ use std::fs::File;
 use std::collections::{HashMap, HashSet};
 use itertools::join;
 
-const ALPHA: &'static str = "ABCDEFGHIJKLMNOPQRSTUVWXYZΓΔΘΛΞΣΦΨΩБДЁЖЗИЙПЦЧШЩЫЭЮЯ";
+const ALPHA: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZΓΔΘΛΞΣΦΨΩБДЁЖЗИЙПЦЧШЩЫЭЮЯ";
 
 #[derive(Debug, Hash, PartialEq, Clone)]
 pub struct Nonterminal {
@@ -61,6 +61,9 @@ impl Symbol {
             &Symbol::T(_) => false,
             &Symbol::N(_) => true,
         }
+    }
+    pub fn is_terminal(&self) -> bool {
+        !self.is_nonterminal()
     }
     pub fn as_nonterminal(&self) -> Option<&Nonterminal> {
         match self {
@@ -333,7 +336,7 @@ impl CFG {
                 let right = rule.right[0].as_nonterminal().unwrap();
                 if unit_sets.get(&rule.left).unwrap().contains(right) {
                     for r in &self.productions {
-                        if &r.left == right && (r.right.len() != 1 || !r.right[0].is_nonterminal()) {
+                        if &r.left == right && (r.right.len() != 1 || r.right[0].is_terminal()) {
                             new_rules.insert(Production::new(rule.left.clone(), r.right.clone()));
                         }
                     }

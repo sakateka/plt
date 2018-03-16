@@ -8,15 +8,23 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
         .subcommand(
             SubCommand::with_name("gen")
                 .about("Sequence generator by CFG")
-                .arg(Arg::with_name("len-min")
-                    .long("len-min")
-                    .takes_value(true)
-                    .help("Minimum sequence lenght (default 0)")
+                .arg(
+                    Arg::with_name("right")
+                        .long("right")
+                        .short("r")
+                        .help("Use the right-hand derivation (default left-hand)"),
                 )
-                .arg(Arg::with_name("len-max")
-                    .long("len-max")
-                    .takes_value(true)
-                    .help("Maximum sequence lenght (default 8)")
+                .arg(
+                    Arg::with_name("len-min")
+                        .long("len-min")
+                        .takes_value(true)
+                        .help("Minimum sequence lenght (default 0)"),
+                )
+                .arg(
+                    Arg::with_name("len-max")
+                        .long("len-max")
+                        .takes_value(true)
+                        .help("Maximum sequence lenght (default 8)"),
                 )
                 .arg(
                     Arg::with_name("CFG")
@@ -29,6 +37,28 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Output file (default to stdout)")
                         .required(false)
                         .index(2),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("simplify")
+                .about("Simplify Context-Free Grammar")
+                .arg(
+                    Arg::with_name("CFG")
+                        .help("Context-Free Grammar rules file to use")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("OUT")
+                        .required(false)
+                        .help("Output file (default to stdout)")
+                        .index(2),
+                )
+                .arg(
+                    Arg::with_name("verbose")
+                        .long("verbose")
+                        .short("v")
+                        .help("Verbose output"),
                 ),
         )
         .get_matches()
