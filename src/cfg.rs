@@ -44,7 +44,7 @@ impl Eq for Symbol {}
 
 impl Symbol {
     pub fn new(c: char) -> Symbol {
-        if c.is_lowercase() {
+        if c.is_lowercase() || c.is_numeric() {
             Symbol::T(Terminal::new(c))
         } else {
             Symbol::N(Nonterminal::new(c))
@@ -119,8 +119,8 @@ impl fmt::Display for CFG {
             }
         } else {
             if rules.is_empty() {
-                eprintln!("Don't see Start Symbol");
-                return Err(fmt::Error {});
+                eprintln!("Empty rule set: {:?}", self);
+                return write!(f, "{} -> ", self.start.symbol);
             }
         }
         for rule in &prods {
@@ -188,7 +188,7 @@ impl CFG {
         }
 
         let left_letter = right_chars[0];
-        if left_letter.is_lowercase() {
+        if left_letter.is_lowercase() || left_letter.is_numeric() {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
                 format!("Terminal symbol at LHS: {}", line),
