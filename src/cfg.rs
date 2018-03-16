@@ -191,7 +191,7 @@ impl CFG {
         if left_letter.is_lowercase() {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!("Terminal symbol at RHS: {}", line),
+                format!("Terminal symbol at LHS: {}", line),
             ));
         }
         for rhs in rule[1].split('|').map(|x| x.trim()) {
