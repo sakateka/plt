@@ -6,6 +6,7 @@ pub struct Generator {
     left: bool,
     rules: HashMap<cfg::Symbol, Vec<Vec<cfg::Symbol>>>,
     queue: HashSet<Vec<cfg::Symbol>>,
+    visited: HashSet<Vec<cfg::Symbol>>,
     min_len: usize,
     max_len: usize,
 }
@@ -58,6 +59,7 @@ impl Generator {
             left: left,
             rules: rules,
             queue: queue,
+            visited: HashSet::new(),
             min_len: lmin as usize,
             max_len: lmax as usize,
         }
@@ -103,7 +105,10 @@ impl Iterator for Generator {
                         new_seq.extend(next_item[idx + 1..].to_vec());
                     }
                     if new_seq.len() <= self.max_len {
-                        self.queue.insert(new_seq);
+                        if !self.visited.contains(&new_seq) {
+                            self.visited.insert(new_seq.clone());
+                            self.queue.insert(new_seq);
+                        }
                     }
                 }
             } else {
