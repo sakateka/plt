@@ -5,12 +5,14 @@ extern crate itertools;
 mod args;
 mod cfg;
 mod generator;
+mod dfa;
 
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 use generator::{GeneratedItem, GeneratedSet, Generator};
 use cfg::CFG;
+use dfa::DFA;
 
 fn main() {
     let app = args::build_app("plt");
@@ -33,9 +35,10 @@ fn main() {
                 print!("{}\n", GeneratedItem(&seq));
             }
         } else {
-            print!("{}", GeneratedSet(
-                gen.collect::<HashSet<Vec<cfg::Symbol>>>()
-            ));
+            print!(
+                "{}",
+                GeneratedSet(gen.collect::<HashSet<Vec<cfg::Symbol>>>())
+            );
         }
     } else if let Some(matches) = app.subcommand_matches("simplify") {
         let grammar = matches.value_of("CFG").unwrap();
@@ -71,5 +74,10 @@ fn main() {
         if matches.is_present("verbose") {
             println!("{:?}\n", cfg.remove_unreachable_rules());
         }
+    } else if let Some(matches) = app.subcommand_matches("dfa") {
+        let dfa_table = matches.value_of("DFA").unwrap();
+        let dfa = DFA::parse(dfa_table).unwrap();
+        let input = matches.value_of("INPUT").unwrap_or_else(|| "/dev/stdin");
+        dfa.check(input).unwrap();
     }
 }

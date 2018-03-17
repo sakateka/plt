@@ -1,0 +1,9 @@
+# a simple example of FA, it is converted to DFA by adding an erroneous state
+# 'start' state marked by '>'
+# 'finish' state marked by '*'
+# if 'start' is 'finish' then mark it as '>*' (order of the markers is important)
+
+   | a | b
+>N | B | -
+*B | B | C
+ C | B | N

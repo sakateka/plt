@@ -83,5 +83,21 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Verbose output and simplification steps"),
                 ),
         )
+        .subcommand(
+            SubCommand::with_name("dfa")
+                .about("Check the string via DFA")
+                .arg(
+                    Arg::with_name("DFA")
+                        .help("Deterministic Finite Automaton definition (as table)")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("INPUT")
+                        .required(false)
+                        .help("Input stream (default: /dev/stdin)")
+                        .index(2),
+                ),
+        )
         .get_matches()
 }
