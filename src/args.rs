@@ -43,7 +43,7 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Output file (default to stdout)")
                         .required(false)
                         .index(2),
-                ),
+                )
         )
         .subcommand(
             SubCommand::with_name("simplify")
@@ -65,7 +65,7 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .long("verbose")
                         .short("v")
                         .help("Verbose output"),
-                ),
+                )
         )
         .subcommand(
             SubCommand::with_name("parse")
@@ -81,7 +81,7 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .long("verbose")
                         .short("v")
                         .help("Verbose output and simplification steps"),
-                ),
+                )
         )
         .subcommand(
             SubCommand::with_name("dfa")
@@ -97,7 +97,13 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .required(false)
                         .help("Input stream (default: /dev/stdin)")
                         .index(2),
-                ),
+                )
+                .arg(
+                    Arg::with_name("debug")
+                        .long("debug")
+                        .short("d")
+                        .help("Debug mode"),
+                )
         )
         .get_matches()
 }
