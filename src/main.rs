@@ -77,8 +77,9 @@ fn main() {
     } else if let Some(matches) = app.subcommand_matches("dfa") {
         let dfa_table = matches.value_of("DFA").unwrap();
         let debug = matches.is_present("debug");
+        let show_path = matches.is_present("path");
         let mut dfa = DFA::parse(dfa_table, debug).unwrap();
         let input = matches.value_of("INPUT").unwrap_or_else(|| "/dev/stdin");
-        dfa.check(input).unwrap();
+        dfa.check(input, show_path).unwrap();
     }
 }

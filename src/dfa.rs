@@ -41,7 +41,7 @@ impl State {
         }
         let mut is_start = false;
         let mut is_accept = false;
-        if name.starts_with('>') {
+        if name.starts_with('^') {
             if name.len() < 2 {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
@@ -74,6 +74,19 @@ impl State {
         self.name == "-"
     }
 }
+
+#[derive(Debug)]
+pub struct DerivationPath<'a> (pub &'a Vec<&'a State>);
+
+impl<'a> fmt::Display for DerivationPath<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for s in self.0 {
+            write!(f, "->{}", s.name).unwrap();
+        }
+        Ok(())
+    }
+}
+
 
 #[derive(Debug)]
 pub struct DFA {
@@ -247,17 +260,23 @@ impl DFA {
         dfa
     }
 
-    pub fn check_string(&self, string: String) -> bool {
-        let mut state = self.start.clone();
+    pub fn check_string(&self, string: String, show_path: bool) -> bool {
+        let mut state = &self.start;
         let mut errorneous_sym = None;
         let mut index = 0;
+        let mut path: Vec<&State> = Vec::new();
+
+        path.push(state);
         for (idx, sym) in string.chars().enumerate() {
             index = idx;
             let key = (state.clone(), sym);
             if let Some(x) = self.jump.get(&key) {
-                state = x.clone();
+                state = &x;
                 if state.is_error() {
                     break;
+                }
+                if show_path {
+                    path.push(state);
                 }
             } else {
                 errorneous_sym = Some(sym);
@@ -277,17 +296,20 @@ impl DFA {
                 index,
                 &string[index..]
             );
-        } else if !self.finish.contains(&state) {
+        } else if !self.finish.contains(state) {
             msg = format!("EOL but DFA state {} is not accepting", state);
+        }
+        if show_path {
+            println!("{}", DerivationPath(&path));
         }
         println!("{} - {}", string, msg);
         msg == "OK"
     }
 
-    pub fn check(&self, input: &str) -> io::Result<()> {
+    pub fn check(&self, input: &str, show_path: bool) -> io::Result<()> {
         let file = BufReader::new(File::open(input)?);
         for line in file.lines() {
-            self.check_string(line?);
+            self.check_string(line?, show_path);
         }
         Ok(())
     }

@@ -104,6 +104,12 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .short("d")
                         .help("Debug mode"),
                 )
+                .arg(
+                    Arg::with_name("path")
+                        .long("path")
+                        .short("p")
+                        .help("Show derivation path"),
+                )
         )
         .get_matches()
 }

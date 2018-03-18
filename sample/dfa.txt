@@ -4,6 +4,6 @@
 # if 'start' is 'finish' then mark it as '>*' (order of the markers is important)
 
    | a | b
->N | B | -
+^N | B | -
 *B | B | C
  C | B | N
