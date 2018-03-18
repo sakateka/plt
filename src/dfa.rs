@@ -81,7 +81,11 @@ pub struct DerivationPath<'a> (pub &'a Vec<&'a State>);
 impl<'a> fmt::Display for DerivationPath<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for s in self.0 {
-            write!(f, "->{}", s.name).unwrap();
+            if s.is_error() {
+                write!(f, "->{}", "(ERROR)".to_string()).unwrap();
+            } else {
+                write!(f, "->{}", s.name).unwrap();
+            }
         }
         Ok(())
     }
@@ -272,11 +276,11 @@ impl DFA {
             let key = (state.clone(), sym);
             if let Some(x) = self.jump.get(&key) {
                 state = &x;
-                if state.is_error() {
-                    break;
-                }
                 if show_path {
                     path.push(state);
+                }
+                if state.is_error() {
+                    break;
                 }
             } else {
                 errorneous_sym = Some(sym);
