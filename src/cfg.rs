@@ -44,10 +44,10 @@ impl Eq for Symbol {}
 
 impl Symbol {
     pub fn new(c: char) -> Symbol {
-        if c.is_lowercase() || c.is_numeric() {
-            Symbol::T(Terminal::new(c))
-        } else {
+        if c.is_alphabetic() && c.is_uppercase() {
             Symbol::N(Nonterminal::new(c))
+        } else {
+            Symbol::T(Terminal::new(c))
         }
     }
     pub fn get_symbol(&self) -> char {
@@ -187,8 +187,8 @@ impl CFG {
             ));
         }
 
-        let left_letter = right_chars[0];
-        if left_letter.is_lowercase() || left_letter.is_numeric() {
+        let left = Symbol::new(right_chars[0]);
+        if left.is_terminal() {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
                 format!("Terminal symbol at LHS: {}", line),
@@ -196,7 +196,7 @@ impl CFG {
         }
         for rhs in rule[1].split('|').map(|x| x.trim()) {
             productions.push(Production::new(
-                Nonterminal::new(left_letter),
+                left.as_nonterminal().unwrap().clone(),
                 rhs.chars().map(|x| Symbol::new(x)).collect(),
             ))
         }
@@ -233,14 +233,13 @@ impl CFG {
     }
 
     pub fn simplify(&self) -> CFG {
-        self.remove_epsilon_rules()
-            .remove_unit_rules()
-            .remove_useless_rules()
+        self.remove_useless_rules()
             .remove_unreachable_rules()
+            .remove_epsilon_rules()
+            .remove_unit_rules()
     }
 
     pub fn remove_epsilon_rules(&self) -> CFG {
-        let mut new_rules: HashSet<Production> = HashSet::new();
         let mut nullable: HashSet<Nonterminal> = HashSet::new();
         let mut changed = true;
         while changed {
@@ -265,6 +264,8 @@ impl CFG {
                 }
             }
         }
+
+        let mut new_rules: HashSet<Production> = HashSet::new();
         let mut start_hash_epsilon = false;
         for rule in &self.productions {
             if !rule.right.is_empty() {
@@ -273,22 +274,38 @@ impl CFG {
                 start_hash_epsilon = rule.left == self.start;
             }
         }
-        for null in &nullable {
-            for rule in &self.productions {
-                for (idx, sym) in rule.right.iter().enumerate() {
-                    if let &Symbol::N(ref n) = sym {
-                        if n == null {
-                            let mut new = Production::new(rule.left.clone(), rule.right.clone());
-                            new.right.remove(idx);
-                            if !new.right.is_empty() // skip new epsilon rule
-                                // skip new unit rule
-                                && !(new.right.len() == 1 && new.right[0].is_nonterminal()
-                                     && new.right[0].as_nonterminal().unwrap() == &new.left)
+        for rule in &self.productions {
+            if rule.right.iter().any(|x| {
+                x.is_nonterminal() && nullable.contains(x.as_nonterminal().unwrap())
+            }) {
+                new_rules.insert(Production::new(rule.left.clone(), rule.right.clone()));
+                let mut source = new_rules.clone();
+                let mut source2 = HashSet::new();
+                let mut changed = true;
+                while changed {
+                    changed = false;
+                    for r in &source {
+                        for (idx, sym) in r.right.iter().enumerate() {
+                            if  sym.is_nonterminal()
+                                && nullable.contains(sym.as_nonterminal().unwrap())
                             {
-                                new_rules.insert(new);
+                                let mut new = r.clone();
+                                new.right.remove(idx);
+                                if  // skip new epsilon rule
+                                    !new.right.is_empty()
+                                    // skip new unit rule
+                                    && !(new.right.len() == 1 && new.right[0].is_nonterminal()
+                                    && new.right[0].as_nonterminal().unwrap() == &new.left)
+                                {
+                                    if new_rules.insert(new.clone()) {
+                                        changed = true;
+                                        source2.insert(new);
+                                    }
+                                }
                             }
                         }
                     }
+                    source = source2.clone();
                 }
             }
         }
@@ -354,26 +371,21 @@ impl CFG {
         while changed {
             changed = false;
             for rule in &self.productions {
-                if rule.right.is_empty() {
-                    // epsilon rule
-                    continue;
-                } else {
-                    let right_nonterm_set: HashSet<Nonterminal> = rule.right
-                        .iter()
-                        .cloned()
-                        .filter(|x| x.is_nonterminal())
-                        .map(|x| match x {
-                            Symbol::N(n) => n,
-                            _ => unreachable!(),
-                        })
-                        .collect();
-                    if right_nonterm_set.is_empty()
-                        || right_nonterm_set.is_subset(&usefull_nonterminals)
-                    {
-                        // if rule contains only terminals or all Nonterminals can be generated
-                        if usefull_nonterminals.insert(rule.left.clone()) {
-                            changed = true;
-                        }
+                let right_nonterm_set: HashSet<Nonterminal> = rule.right
+                    .iter()
+                    .cloned()
+                    .filter(|x| x.is_nonterminal())
+                    .map(|x| match x {
+                        Symbol::N(n) => n,
+                        _ => unreachable!(),
+                    })
+                    .collect();
+                if right_nonterm_set.is_empty()
+                    || right_nonterm_set.is_subset(&usefull_nonterminals)
+                {
+                    // if rule contains only terminals or all Nonterminals can be generated
+                    if usefull_nonterminals.insert(rule.left.clone()) {
+                        changed = true;
                     }
                 }
             }
@@ -506,9 +518,7 @@ mod tests {
                 "\n"
             )
         );
-        let cfg = CFG::parse_from_reader(Cursor::new(test_rules))
-            .unwrap()
-            .remove_epsilon_rules();
+        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
         assert_eq!(format!("{}", cfg.remove_useless_rules()), expected);
     }
 
@@ -538,9 +548,28 @@ mod tests {
         );
         let cfg = CFG::parse_from_reader(Cursor::new(test_rules))
             .unwrap()
-            .remove_epsilon_rules()
             .remove_useless_rules();
         assert_eq!(format!("{}", cfg.remove_unreachable_rules()), expected);
+    }
+
+    #[test]
+    fn simplify() {
+        let test_rules = "
+            S ->  | S(S)S
+        ";
+        let expected = format!(
+            "{}\n",
+            join(
+                vec![
+                // The starting character can be any character, so it is removed
+                    " ->  | () | ()S | (S) | (S)S | S() | S()S | S(S) | S(S)S",
+                    "S -> () | ()S | (S) | (S)S | S() | S()S | S(S) | S(S)S"
+                ],
+                "\n"
+            )
+        );
+        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
+        assert_eq!(join(format!("{}", cfg.simplify()).chars().skip(1), ""), expected);
     }
 
 }

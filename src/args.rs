@@ -66,21 +66,11 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .short("v")
                         .help("Verbose output"),
                 )
-        )
-        .subcommand(
-            SubCommand::with_name("parse")
-                .about("Parse Context-Free Grammar rules")
                 .arg(
-                    Arg::with_name("CFG")
-                        .help("Context-Free Grammar rules file to use")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::with_name("verbose")
-                        .long("verbose")
-                        .short("v")
-                        .help("Verbose output and simplification steps"),
+                    Arg::with_name("debug")
+                        .long("debug")
+                        .short("d")
+                        .help("Debug output"),
                 )
         )
         .subcommand(
