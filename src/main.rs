@@ -51,16 +51,6 @@ fn main() {
             .unwrap();
         if matches.is_present("verbose") {
             eprint!("\nParsed CFG\n{}", cfg);
-            cfg = cfg.remove_useless_rules();
-            eprint!("Remove useless\n{}", cfg);
-            if matches.is_present("debug") {
-                eprintln!("{:?}\n", cfg);
-            }
-            cfg = cfg.remove_unreachable_rules();
-            eprint!("Remove unreachable\n{}", cfg);
-            if matches.is_present("debug") {
-                eprintln!("{:?}\n", cfg);
-            }
             cfg = cfg.remove_epsilon_rules();
             eprint!("Remove epsilon\n{}", cfg);
             if matches.is_present("debug") {
@@ -68,6 +58,16 @@ fn main() {
             }
             cfg = cfg.remove_unit_rules();
             eprint!("Remove units\n{}", cfg);
+            if matches.is_present("debug") {
+                eprintln!("{:?}\n", cfg);
+            }
+            cfg = cfg.remove_useless_rules();
+            eprint!("Remove useless\n{}", cfg);
+            if matches.is_present("debug") {
+                eprintln!("{:?}\n", cfg);
+            }
+            cfg = cfg.remove_unreachable_rules();
+            eprint!("Remove unreachable\n{}", cfg);
             if matches.is_present("debug") {
                 eprintln!("{:?}\n", cfg);
             }
