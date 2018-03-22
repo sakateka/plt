@@ -85,7 +85,7 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                 .arg(
                     Arg::with_name("INPUT")
                         .required(false)
-                        .help("Input stream (default: /dev/stdin)")
+                        .help("Input stream (default: stdin)")
                         .index(2),
                 )
                 .arg(

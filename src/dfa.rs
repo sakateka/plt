@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, Read};
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
@@ -310,9 +310,9 @@ impl DFA {
         msg == "OK"
     }
 
-    pub fn check(&self, input: &str, show_path: bool) -> io::Result<()> {
-        let file = BufReader::new(File::open(input)?);
-        for line in file.lines() {
+    pub fn check(&self, input: Box<Read>, show_path: bool) -> io::Result<()> {
+        let buf = BufReader::new(input);
+        for line in buf.lines() {
             self.check_string(line?, show_path);
         }
         Ok(())

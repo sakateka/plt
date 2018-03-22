@@ -8,8 +8,9 @@ mod generator;
 mod dfa;
 
 use std::collections::HashSet;
+use std::path::Path;
 use std::fs::File;
-use std::io::Write;
+use std::io::{self, Read, Write, BufWriter};
 use generator::{GeneratedItem, GeneratedSet, Generator};
 use cfg::{Symbol, CFG};
 use dfa::DFA;
@@ -30,22 +31,42 @@ fn main() {
         }
         let left = !matches.is_present("right");
         let gen = Generator::new(cfg, min, max, left);
+        let mut output_stream = match matches.value_of("OUT") {
+            Some(x) => {
+                let path = Path::new(x);
+                BufWriter::new(Box::new(File::create(&path).unwrap()) as Box<Write>)
+            }
+            None => BufWriter::new(Box::new(io::stdout()) as Box<Write>),
+        };
         if matches.is_present("all") {
             for seq in gen {
-                print!("{}\n", GeneratedItem(&seq));
+                output_stream
+                    .write_fmt(format_args!("{}\n", GeneratedItem(&seq)))
+                    .unwrap();
             }
         } else {
-            print!("{}", GeneratedSet(gen.collect::<HashSet<Vec<Symbol>>>()));
+            output_stream
+                .write_fmt(format_args!(
+                    "{}",
+                    GeneratedSet(gen.collect::<HashSet<Vec<Symbol>>>())
+                ))
+                .unwrap();
         }
     } else if let Some(matches) = app.subcommand_matches("simplify") {
         let grammar = matches.value_of("CFG").unwrap();
         let mut cfg = CFG::parse(grammar).unwrap();
-        let output = matches.value_of("OUT").unwrap_or_else(|| "/dev/stdout");
-        let mut output_stream = File::create(output).unwrap();
 
-        if matches.is_present("verbose") {
-            eprintln!("Write simplified grammar to {}", output);
-        }
+        let mut output_stream = match matches.value_of("OUT") {
+            Some(x) => {
+                if matches.is_present("verbose") {
+                    eprintln!("Write simplified grammar to {:?}", x);
+                }
+                let path = Path::new(x);
+                Box::new(File::create(&path).unwrap()) as Box<Write>
+            }
+            None => Box::new(io::stdout()) as Box<Write>,
+        };
+
         output_stream
             .write_fmt(format_args!("{}", cfg.simplify()))
             .unwrap();
@@ -77,7 +98,13 @@ fn main() {
         let debug = matches.is_present("debug");
         let show_path = matches.is_present("path");
         let mut dfa = DFA::parse(dfa_table, debug).unwrap();
-        let input = matches.value_of("INPUT").unwrap_or_else(|| "/dev/stdin");
+        let mut input = match matches.value_of("INPUT") {
+            Some(x) => {
+                let path = Path::new(x);
+                Box::new(File::open(&path).unwrap()) as Box<Read>
+            }
+            None => Box::new(io::stdin()) as Box<Read>,
+        };
         dfa.check(input, show_path).unwrap();
     }
 }
