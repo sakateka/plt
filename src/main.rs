@@ -6,6 +6,7 @@ mod args;
 mod cfg;
 mod generator;
 mod dfa;
+mod pda;
 
 use std::collections::HashSet;
 use std::path::Path;
