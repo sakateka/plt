@@ -1,21 +1,41 @@
-use std::collections::HashSet;
+#[derive(PartialEq, Debug, Hash, Clone, Copy)]
+pub enum PDAState {
+    State(u32),
+    Stuck,
+}
+impl Eq for PDAState {}
 
-type PDAState = u32;
+impl PDAState {
+    pub fn new(id: u32) -> PDAState {
+        PDAState::State(id)
+    }
+}
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct PDAConfiguration {
     pub state: PDAState,
     pub stack: Vec<char>,
 }
 impl PDAConfiguration {
-    pub fn new(state: PDAState, stack: Vec<char>) -> PDAConfiguration {
+    pub fn new(state: u32, stack: Vec<char>) -> PDAConfiguration {
         PDAConfiguration {
-            state: state,
+            state: PDAState::new(state),
             stack: stack,
         }
     }
+    pub fn stuck(&self) -> PDAConfiguration {
+        PDAConfiguration {
+            state: PDAState::Stuck,
+            stack: self.stack.clone(),
+        }
+    }
+
+    pub fn is_stuck(&self) -> bool {
+        self.state == PDAState::Stuck
+    }
 }
 
+#[derive(Clone)]
 pub struct PDARule {
     pub state: PDAState,
     pub character: Option<char>,
@@ -26,16 +46,16 @@ pub struct PDARule {
 
 impl PDARule {
     pub fn new(
-        state: PDAState,
+        state: u32,
         character: Option<char>,
-        next_state: PDAState,
+        next_state: u32,
         pop_character: Option<char>,
         push_characters: Vec<char>,
     ) -> PDARule {
         PDARule {
-            state: state,
+            state: PDAState::new(state),
             character: character,
-            next_state: next_state,
+            next_state: PDAState::new(next_state),
             pop_character: pop_character,
             push_characters: push_characters,
         }
@@ -63,6 +83,7 @@ impl PDARule {
     }
 }
 
+#[derive(Clone)]
 pub struct DPDARulebook {
     rules: Vec<PDARule>,
 }
@@ -76,45 +97,109 @@ impl DPDARulebook {
         &self,
         cfg: &PDAConfiguration,
         character: Option<char>,
-    ) -> PDAConfiguration {
-        self.rule_for(cfg, character).follow(cfg)
+    ) -> Option<PDAConfiguration> {
+        if let Some(rule) = self.rule_for(cfg, character) {
+            Some(rule.follow(cfg))
+        } else {
+            None
+        }
     }
-    pub fn rule_for(&self, cfg: &PDAConfiguration, character: Option<char>) -> &PDARule {
+    pub fn rule_for(&self, cfg: &PDAConfiguration, character: Option<char>) -> Option<&PDARule> {
         self.rules
             .iter()
             .find(|ref rule| rule.applies_to(cfg, character))
-            .unwrap()
+    }
+
+    pub fn applies_to(&self, cfg: &PDAConfiguration, character: Option<char>) -> bool {
+        self.rule_for(cfg, character).is_some()
+    }
+
+    pub fn follow_free_moves(&self, cfg: PDAConfiguration) -> PDAConfiguration {
+        if self.applies_to(&cfg, None) {
+            self.follow_free_moves(self.next_configuration(&cfg, None).unwrap())
+        } else {
+            cfg
+        }
     }
 }
 
 pub struct DPDA {
-    pub current_cfg: PDAConfiguration,
-    pub accept_states: HashSet<PDAState>,
+    pub _current_cfg: PDAConfiguration,
+    pub accept_states: Vec<PDAState>,
     pub rulebook: DPDARulebook,
 }
 
 impl DPDA {
     pub fn new(
         cfg: PDAConfiguration,
-        accept_states: HashSet<PDAState>,
+        accept_states: Vec<PDAState>,
         rulebook: DPDARulebook,
     ) -> DPDA {
         DPDA {
-            current_cfg: cfg,
+            _current_cfg: cfg,
             accept_states: accept_states,
             rulebook: rulebook,
         }
     }
 
     pub fn accepting(&self) -> bool {
-        self.accept_states.contains(&self.current_cfg.state)
+        self.accept_states.contains(&self.current_cfg().state)
     }
+
+    pub fn is_stuck(&self) -> bool {
+        self.current_cfg().is_stuck()
+    }
+
     pub fn read_character(&mut self, character: char) {
-        self.current_cfg = self.rulebook.next_configuration(&self.current_cfg, Some(character));
+        if let Some(cfg) = self.rulebook
+            .next_configuration(&self.current_cfg(), Some(character))
+        {
+            self._current_cfg = cfg
+        } else {
+            self._current_cfg = self.current_cfg().stuck()
+        }
     }
 
     pub fn read_string(&mut self, string: String) {
-        string.chars().for_each(|character| self.read_character(character));
+        for character in string.chars() {
+            if self.is_stuck() {
+                break;
+            }
+            self.read_character(character);
+        }
+    }
+
+    pub fn current_cfg(&self) -> PDAConfiguration {
+        self.rulebook.follow_free_moves(self._current_cfg.clone())
+    }
+}
+
+pub struct DPDADesign {
+    pub start_state: u32,
+    pub bottom_character: char,
+    pub accept_states: Vec<PDAState>,
+    pub rulebook: DPDARulebook,
+}
+
+impl DPDADesign {
+    pub fn new(start: u32, bottom: char, accept: Vec<u32>, rulebook: DPDARulebook) -> DPDADesign {
+        DPDADesign {
+            start_state: start,
+            bottom_character: bottom,
+            accept_states: accept.into_iter().map(|x| PDAState::State(x)).collect(),
+            rulebook: rulebook,
+        }
+    }
+    pub fn accepts(&self, string: String) -> bool {
+        let mut dpda =  self.to_dpda();
+        dpda.read_string(string);
+        dpda.accepting()
+    }
+
+    pub fn to_dpda(&self) -> DPDA {
+        let start_stack = vec![self.bottom_character];
+        let start_cfg = PDAConfiguration::new(self.start_state, start_stack);
+        DPDA::new(start_cfg, self.accept_states.clone(), self.rulebook.clone())
     }
 }
 
@@ -132,22 +217,22 @@ mod tests {
     }
 
     #[test]
-    fn test_applies_to() {
+    fn applies_to() {
         let rule = PDARule::new(1, Some('('), 2, Some('$'), vec!['b', '$']);
         let cfg = PDAConfiguration::new(1, vec!['$']);
         assert_eq!(rule.applies_to(&cfg, Some('(')), true);
     }
 
     #[test]
-    fn test_rule_follow() {
+    fn rule_follow() {
         let rule = PDARule::new(1, Some('('), 2, Some('$'), vec!['b', '$']);
         let cfg = PDAConfiguration::new(1, vec!['$']);
         let new_cfg = rule.follow(&cfg);
-        assert!(new_cfg.state == 2 && new_cfg.stack == vec!['$', 'b']);
+        assert!(new_cfg.state == PDAState::new(2) && new_cfg.stack == vec!['$', 'b']);
     }
 
     #[test]
-    fn test_next_stack() {
+    fn next_stack() {
         let rule = PDARule::new(1, Some('('), 2, Some('T'), vec!['a', 'b', 'T']);
         let cfg = PDAConfiguration::new(1, vec!['$', 'T']);
 
@@ -158,21 +243,21 @@ mod tests {
     }
 
     #[test]
-    fn test_rulebook() {
+    fn rulebook() {
         let rulebook = get_rulebook();
-        let mut cfg = PDAConfiguration::new(1, vec!['$']);
-        cfg = rulebook.next_configuration(&cfg, Some('('));
-        assert_eq!(cfg, PDAConfiguration::new(2, vec!['$', 'b']));
-        cfg = rulebook.next_configuration(&cfg, Some('('));
-        assert_eq!(cfg, PDAConfiguration::new(2, vec!['$', 'b', 'b']));
-        cfg = rulebook.next_configuration(&cfg, Some(')'));
-        assert_eq!(cfg, PDAConfiguration::new(2, vec!['$', 'b']));
+        let mut cfg = Some(PDAConfiguration::new(1, vec!['$']));
+        cfg = rulebook.next_configuration(&cfg.unwrap(), Some('('));
+        assert_eq!(cfg, Some(PDAConfiguration::new(2, vec!['$', 'b'])));
+        cfg = rulebook.next_configuration(&cfg.unwrap(), Some('('));
+        assert_eq!(cfg, Some(PDAConfiguration::new(2, vec!['$', 'b', 'b'])));
+        cfg = rulebook.next_configuration(&cfg.unwrap(), Some(')'));
+        assert_eq!(cfg, Some(PDAConfiguration::new(2, vec!['$', 'b'])));
     }
 
     #[test]
-    fn test_dpda() {
+    fn dpda() {
         let cfg = PDAConfiguration::new(1, vec!['$']);
-        let accept_states: HashSet<PDAState> = vec![1].iter().cloned().collect();
+        let accept_states: Vec<PDAState> = vec![PDAState::new(1)];
         let rulebook = get_rulebook();
 
         let mut dpda = DPDA::new(cfg, accept_states, rulebook);
@@ -181,6 +266,41 @@ mod tests {
         dpda.read_string("(()".to_string());
         assert_eq!(dpda.accepting(), false, "Accept invalid string!");
 
-        assert_eq!(dpda.current_cfg, PDAConfiguration::new(2, vec!['$', 'b']), "Unexpected state");
+        assert_eq!(
+            dpda.current_cfg(),
+            PDAConfiguration::new(2, vec!['$', 'b']),
+            "Unexpected state"
+        );
+
+        dpda.read_string(")".to_string());
+        assert_eq!(dpda.accepting(), true, "Accept expected!");
+
+        dpda.read_string("(()(".to_string());
+        assert_eq!(dpda.accepting(), false, "Accept invalid string!");
+        assert_eq!(
+            dpda.current_cfg(),
+            PDAConfiguration::new(2, vec!['$', 'b', 'b'])
+        );
+        dpda.read_string("))()".to_string());
+        assert_eq!(dpda.current_cfg(), PDAConfiguration::new(1, vec!['$']));
+        assert_eq!(dpda.accepting(), true, "Accept expected!");
+    }
+
+    #[test]
+    fn follow_free_moves() {
+        let cfg = PDAConfiguration::new(2, vec!['$']);
+        let rulebook = get_rulebook();
+
+        assert_eq!(rulebook.follow_free_moves(cfg).state, PDAState::new(1))
+    }
+
+    #[test]
+    fn design() {
+        let rulebook = get_rulebook();
+        let dpda_design = DPDADesign::new(1, '$', vec![1], rulebook);
+        assert!(dpda_design.accepts("(((((((((())))))))))".to_string()));
+        assert!(dpda_design.accepts("()(())((()))(()(()))".to_string()));
+        assert!(!dpda_design.accepts("(()(()(()()(()()))()".to_string()));
+        assert!(!dpda_design.accepts("())".to_string()));
     }
 }
