@@ -1,4 +1,10 @@
-#[derive(PartialEq, Debug, Hash, Clone, Copy)]
+use serde_yaml;
+
+use std::fs::File;
+use std::error::Error;
+use std::io::{self, BufRead, BufReader};
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Clone, Copy)]
 pub enum PDAState {
     State(u32),
     Stuck,
@@ -35,7 +41,7 @@ impl PDAConfiguration {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct PDARule {
     pub state: PDAState,
     pub character: Option<char>,
@@ -83,7 +89,7 @@ impl PDARule {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct DPDARulebook {
     rules: Vec<PDARule>,
 }
@@ -174,10 +180,11 @@ impl DPDA {
     }
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DPDADesign {
     pub start_state: u32,
     pub bottom_character: char,
-    pub accept_states: Vec<PDAState>,
+    pub accept_states: Vec<u32>,
     pub rulebook: DPDARulebook,
 }
 
@@ -186,12 +193,28 @@ impl DPDADesign {
         DPDADesign {
             start_state: start,
             bottom_character: bottom,
-            accept_states: accept.into_iter().map(|x| PDAState::State(x)).collect(),
+            accept_states: accept,
             rulebook: rulebook,
         }
     }
+
+    pub fn load(input_path: &str) -> io::Result<DPDADesign> {
+        let file = BufReader::new(File::open(input_path)?);
+        DPDADesign::load_from_reader(file)
+    }
+
+    pub fn load_from_reader<R: ?Sized + BufRead>(r: R) -> io::Result<DPDADesign>
+    where
+        R: ::std::marker::Sized,
+    {
+        match serde_yaml::from_reader(r) {
+            Ok(design) => Ok(design),
+            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err.description())),
+        }
+    }
+
     pub fn accepts(&self, string: String) -> bool {
-        let mut dpda =  self.to_dpda();
+        let mut dpda = self.to_dpda();
         dpda.read_string(string);
         dpda.accepting()
     }
@@ -199,7 +222,15 @@ impl DPDADesign {
     pub fn to_dpda(&self) -> DPDA {
         let start_stack = vec![self.bottom_character];
         let start_cfg = PDAConfiguration::new(self.start_state, start_stack);
-        DPDA::new(start_cfg, self.accept_states.clone(), self.rulebook.clone())
+        DPDA::new(
+            start_cfg,
+            self.accept_states
+                .iter()
+                .cloned()
+                .map(|x| PDAState::State(x))
+                .collect(),
+            self.rulebook.clone(),
+        )
     }
 }
 
@@ -302,5 +333,13 @@ mod tests {
         assert!(dpda_design.accepts("()(())((()))(()(()))".to_string()));
         assert!(!dpda_design.accepts("(()(()(()()(()()))()".to_string()));
         assert!(!dpda_design.accepts("())".to_string()));
+    }
+
+    #[test]
+    fn load_design() {
+        let rulebook = get_rulebook();
+        let dpda_design = DPDADesign::new(1, '$', vec![1], rulebook);
+        let dpda_design_from_sample_file = DPDADesign::load("sample/pda-config.yaml").unwrap();
+        assert_eq!(dpda_design, dpda_design_from_sample_file);
     }
 }

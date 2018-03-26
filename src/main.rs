@@ -2,6 +2,10 @@
 extern crate clap;
 extern crate itertools;
 
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_yaml;
+
 mod args;
 mod cfg;
 mod generator;
