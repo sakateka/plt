@@ -125,6 +125,7 @@ pub struct DPDA {
     pub _current_cfg: PDAConfiguration,
     pub accept_states: Vec<u32>,
     pub rulebook: DPDARulebook,
+    pub traversed_path: Option<Vec<PDAConfiguration>>,
 }
 
 impl DPDA {
@@ -132,11 +133,13 @@ impl DPDA {
         cfg: PDAConfiguration,
         accept_states: Vec<u32>,
         rulebook: DPDARulebook,
+        traversed_path: Option<Vec<PDAConfiguration>>,
     ) -> DPDA {
         DPDA {
             _current_cfg: cfg,
             accept_states: accept_states,
             rulebook: rulebook,
+            traversed_path: traversed_path,
         }
     }
 
@@ -155,6 +158,9 @@ impl DPDA {
             self._current_cfg = cfg
         } else {
             self._current_cfg = self.current_cfg().stuck()
+        }
+        if let &mut Some(ref mut traversed_path) = &mut self.traversed_path {
+            traversed_path.push(self._current_cfg.clone())
         }
     }
 
@@ -178,15 +184,25 @@ pub struct DPDADesign {
     pub bottom_character: char,
     pub accept_states: Vec<u32>,
     pub rulebook: DPDARulebook,
+    #[serde(skip_deserializing)]
+    pub remember_traversed_path: bool,
+}
+
+pub struct DPDADesignResult {
+    pub cfg: PDAConfiguration,
+    pub path: Option<Vec<PDAConfiguration>>,
+    pub ok: bool,
 }
 
 impl DPDADesign {
+
     pub fn new(start: u32, bottom: char, accept: Vec<u32>, rulebook: DPDARulebook) -> DPDADesign {
         DPDADesign {
             start_state: start,
             bottom_character: bottom,
             accept_states: accept,
             rulebook: rulebook,
+            remember_traversed_path: false,
         }
     }
 
@@ -205,15 +221,23 @@ impl DPDADesign {
         }
     }
 
-    pub fn accepts(&self, string: String) -> bool {
+    pub fn accepts(&self, string: String) -> DPDADesignResult {
         let mut dpda = self.to_dpda();
         dpda.read_string(string);
-        dpda.accepting()
+        DPDADesignResult{
+            ok: dpda.accepting(),
+            cfg: dpda.current_cfg(),
+            path: dpda.traversed_path,
+        }
     }
 
     pub fn to_dpda(&self) -> DPDA {
         let start_stack = vec![self.bottom_character];
         let start_cfg = PDAConfiguration::new(self.start_state, start_stack);
+        let mut path = None;
+        if self.remember_traversed_path {
+            path = Some(Vec::new());
+        }
         DPDA::new(
             start_cfg,
             self.accept_states
@@ -221,6 +245,7 @@ impl DPDADesign {
                 .cloned()
                 .collect(),
             self.rulebook.clone(),
+            path,
         )
     }
 }
@@ -282,7 +307,7 @@ mod tests {
         let accept_states: Vec<u32> = vec![1];
         let rulebook = get_rulebook();
 
-        let mut dpda = DPDA::new(cfg, accept_states, rulebook);
+        let mut dpda = DPDA::new(cfg, accept_states, rulebook, None);
 
         assert!(dpda.accepting(), "Initial state not accepting!");
         dpda.read_string("(()".to_string());
@@ -320,10 +345,10 @@ mod tests {
     fn design() {
         let rulebook = get_rulebook();
         let dpda_design = DPDADesign::new(1, '$', vec![1], rulebook);
-        assert!(dpda_design.accepts("(((((((((())))))))))".to_string()));
-        assert!(dpda_design.accepts("()(())((()))(()(()))".to_string()));
-        assert!(!dpda_design.accepts("(()(()(()()(()()))()".to_string()));
-        assert!(!dpda_design.accepts("())".to_string()));
+        assert!(dpda_design.accepts("(((((((((())))))))))".to_string()).ok);
+        assert!(dpda_design.accepts("()(())((()))(()(()))".to_string()).ok);
+        assert!(!dpda_design.accepts("(()(()(()()(()()))()".to_string()).ok);
+        assert!(!dpda_design.accepts("())".to_string()).ok);
     }
 
     #[test]

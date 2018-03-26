@@ -15,10 +15,11 @@ mod pda;
 use std::collections::HashSet;
 use std::path::Path;
 use std::fs::File;
-use std::io::{self, Read, Write, BufWriter};
+use std::io::{self, Read, Write, BufWriter, BufRead, BufReader};
 use generator::{GeneratedItem, GeneratedSet, Generator};
 use cfg::{Symbol, CFG};
 use dfa::DFA;
+use pda::DPDADesign;
 
 fn main() {
     let app = args::build_app("plt");
@@ -111,5 +112,34 @@ fn main() {
             None => Box::new(io::stdin()) as Box<Read>,
         };
         dfa.check(input, show_path).unwrap();
+    } else if let Some(matches) = app.subcommand_matches("dpda") {
+        let dpda_spec = matches.value_of("DPDA").unwrap();
+
+        let mut input = match matches.value_of("INPUT") {
+            Some(x) => {
+                let path = Path::new(x);
+                Box::new(File::open(&path).unwrap()) as Box<Read>
+            }
+            None => Box::new(io::stdin()) as Box<Read>,
+
+        };
+
+        let mut dpda_design = DPDADesign::load(dpda_spec).unwrap();
+        dpda_design.remember_traversed_path = matches.is_present("path");
+
+        let dpda_design = dpda_design;
+        let buf = BufReader::new(input);
+        for line in buf.lines() {
+            let text = line.unwrap();
+            let result = dpda_design.accepts(text.clone());
+            if dpda_design.remember_traversed_path {
+                println!("{:?}", result.path);
+            }
+            if result.ok {
+                println!("{} - OK", text);
+            } else {
+                println!("{} - ERR: {:?}", text, result.cfg);
+            }
+        }
     }
 }

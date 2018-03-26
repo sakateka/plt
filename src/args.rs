@@ -101,5 +101,27 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Show derivation path"),
                 )
         )
+        .subcommand(
+            SubCommand::with_name("dpda")
+                .about("Check the string via DPDA")
+                .arg(
+                    Arg::with_name("DPDA")
+                        .help("Deterministic Push Down Automaton definition")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("INPUT")
+                        .required(false)
+                        .help("Input stream (default: stdin)")
+                        .index(2),
+                )
+                .arg(
+                    Arg::with_name("path")
+                        .long("path")
+                        .short("p")
+                        .help("Show derivation path"),
+                )
+        )
         .get_matches()
 }
