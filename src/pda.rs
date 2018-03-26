@@ -4,48 +4,39 @@ use std::fs::File;
 use std::error::Error;
 use std::io::{self, BufRead, BufReader};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Clone, Copy)]
-pub enum PDAState {
-    State(u32),
-    Stuck,
-}
-impl Eq for PDAState {}
-
-impl PDAState {
-    pub fn new(id: u32) -> PDAState {
-        PDAState::State(id)
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, PartialEq, Deserialize, Clone)]
 pub struct PDAConfiguration {
-    pub state: PDAState,
+    #[serde(skip_deserializing)]
+    stuck: bool,
+    pub state: u32,
     pub stack: Vec<char>,
 }
 impl PDAConfiguration {
     pub fn new(state: u32, stack: Vec<char>) -> PDAConfiguration {
         PDAConfiguration {
-            state: PDAState::new(state),
+            stuck: false,
+            state: state,
             stack: stack,
         }
     }
     pub fn stuck(&self) -> PDAConfiguration {
         PDAConfiguration {
-            state: PDAState::Stuck,
+            stuck: true,
+            state: 0,
             stack: self.stack.clone(),
         }
     }
 
     pub fn is_stuck(&self) -> bool {
-        self.state == PDAState::Stuck
+        self.stuck
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Deserialize, Clone)]
 pub struct PDARule {
-    pub state: PDAState,
+    pub state: u32,
     pub character: Option<char>,
-    pub next_state: PDAState,
+    pub next_state: u32,
     pub pop_character: Option<char>,
     pub push_characters: Vec<char>,
 }
@@ -59,9 +50,9 @@ impl PDARule {
         push_characters: Vec<char>,
     ) -> PDARule {
         PDARule {
-            state: PDAState::new(state),
+            state: state,
             character: character,
-            next_state: PDAState::new(next_state),
+            next_state: next_state,
             pop_character: pop_character,
             push_characters: push_characters,
         }
@@ -73,6 +64,7 @@ impl PDARule {
 
     pub fn follow(&self, cfg: &PDAConfiguration) -> PDAConfiguration {
         PDAConfiguration {
+            stuck: false,
             state: self.next_state.clone(),
             stack: self.next_stack(cfg),
         }
@@ -89,7 +81,7 @@ impl PDARule {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Deserialize, Clone)]
 pub struct DPDARulebook {
     rules: Vec<PDARule>,
 }
@@ -131,14 +123,14 @@ impl DPDARulebook {
 
 pub struct DPDA {
     pub _current_cfg: PDAConfiguration,
-    pub accept_states: Vec<PDAState>,
+    pub accept_states: Vec<u32>,
     pub rulebook: DPDARulebook,
 }
 
 impl DPDA {
     pub fn new(
         cfg: PDAConfiguration,
-        accept_states: Vec<PDAState>,
+        accept_states: Vec<u32>,
         rulebook: DPDARulebook,
     ) -> DPDA {
         DPDA {
@@ -180,7 +172,7 @@ impl DPDA {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct DPDADesign {
     pub start_state: u32,
     pub bottom_character: char,
@@ -227,7 +219,6 @@ impl DPDADesign {
             self.accept_states
                 .iter()
                 .cloned()
-                .map(|x| PDAState::State(x))
                 .collect(),
             self.rulebook.clone(),
         )
@@ -259,7 +250,7 @@ mod tests {
         let rule = PDARule::new(1, Some('('), 2, Some('$'), vec!['b', '$']);
         let cfg = PDAConfiguration::new(1, vec!['$']);
         let new_cfg = rule.follow(&cfg);
-        assert!(new_cfg.state == PDAState::new(2) && new_cfg.stack == vec!['$', 'b']);
+        assert!(new_cfg.state == 2 && new_cfg.stack == vec!['$', 'b']);
     }
 
     #[test]
@@ -288,7 +279,7 @@ mod tests {
     #[test]
     fn dpda() {
         let cfg = PDAConfiguration::new(1, vec!['$']);
-        let accept_states: Vec<PDAState> = vec![PDAState::new(1)];
+        let accept_states: Vec<u32> = vec![1];
         let rulebook = get_rulebook();
 
         let mut dpda = DPDA::new(cfg, accept_states, rulebook);
@@ -322,7 +313,7 @@ mod tests {
         let cfg = PDAConfiguration::new(2, vec!['$']);
         let rulebook = get_rulebook();
 
-        assert_eq!(rulebook.follow_free_moves(cfg).state, PDAState::new(1))
+        assert_eq!(rulebook.follow_free_moves(cfg).state, 1)
     }
 
     #[test]

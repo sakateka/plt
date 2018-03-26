@@ -3,23 +3,23 @@ bottom_character: $
 accept_states: [1]
 rulebook:
   rules:
-    - state: {State: 1}
+    - state: 1
       character: '('
-      next_state: {State: 2}
+      next_state: 2
       pop_character: $
       push_characters: [b, $]
-    - state: {State: 2}
+    - state: 2
       character: '('
-      next_state: {State: 2}
+      next_state: 2
       pop_character: b
       push_characters: [b, b]
-    - state: {State: 2}
+    - state: 2
       character: ')'
-      next_state: {State: 2}
+      next_state: 2
       pop_character: b
       push_characters: []
-    - state: {State: 2}
+    - state: 2
       character: ~
-      next_state: {State: 1}
+      next_state: 1
       pop_character: $
       push_characters: [$]
