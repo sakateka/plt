@@ -15,11 +15,12 @@ mod pda;
 use std::collections::HashSet;
 use std::path::Path;
 use std::fs::File;
-use std::io::{self, Read, Write, BufWriter, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 use generator::{GeneratedItem, GeneratedSet, Generator};
 use cfg::{Symbol, CFG};
 use dfa::DFA;
 use pda::DPDADesign;
+use itertools::join;
 
 fn main() {
     let app = args::build_app("plt");
@@ -121,7 +122,6 @@ fn main() {
                 Box::new(File::open(&path).unwrap()) as Box<Read>
             }
             None => Box::new(io::stdin()) as Box<Read>,
-
         };
 
         let mut dpda_design = DPDADesign::load(dpda_spec).unwrap();
@@ -131,14 +131,29 @@ fn main() {
         let buf = BufReader::new(input);
         for line in buf.lines() {
             let text = line.unwrap();
-            let result = dpda_design.accepts(text.clone());
-            if dpda_design.remember_traversed_path {
-                println!("{:?}", result.path);
+            let result = dpda_design.accepts(text);
+            if let Some(path) = result.path {
+                println!(
+                    "{}",
+                    join(
+                        path.iter()
+                            .cloned()
+                            .map(|x| {
+                                if let Some(rule) =  x {
+                                    format!("{}", rule)
+                                } else {
+                                    String::new()
+                                }
+                            })
+                            .collect::<Vec<String>>(),
+                        " -> "
+                    )
+                );
             }
             if result.ok {
-                println!("{} - OK", text);
+                println!("OK");
             } else {
-                println!("{} - ERR: {:?}", text, result.cfg);
+                println!("ERR: {:?}", result.cfg);
             }
         }
     }

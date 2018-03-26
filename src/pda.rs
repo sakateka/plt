@@ -1,5 +1,6 @@
 use serde_yaml;
 
+use std::fmt;
 use std::fs::File;
 use std::error::Error;
 use std::io::{self, BufRead, BufReader};
@@ -11,6 +12,7 @@ pub struct PDAConfiguration {
     pub state: u32,
     pub stack: Vec<char>,
 }
+
 impl PDAConfiguration {
     pub fn new(state: u32, stack: Vec<char>) -> PDAConfiguration {
         PDAConfiguration {
@@ -22,7 +24,7 @@ impl PDAConfiguration {
     pub fn stuck(&self) -> PDAConfiguration {
         PDAConfiguration {
             stuck: true,
-            state: 0,
+            state: self.state,
             stack: self.stack.clone(),
         }
     }
@@ -39,6 +41,26 @@ pub struct PDARule {
     pub next_state: u32,
     pub pop_character: Option<char>,
     pub push_characters: Vec<char>,
+}
+impl fmt::Display for PDARule {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "[{}]{};{}/{}",
+            self.state,
+            if let Some(ch) = self.character {
+                format!("{}", ch)
+            } else {
+                "".to_string()
+            },
+            if let Some(ch) = self.pop_character {
+                format!("{}", ch)
+            } else {
+                "".to_string()
+            },
+            self.push_characters.iter().collect::<String>()
+        )
+    }
 }
 
 impl PDARule {
@@ -125,7 +147,7 @@ pub struct DPDA {
     pub _current_cfg: PDAConfiguration,
     pub accept_states: Vec<u32>,
     pub rulebook: DPDARulebook,
-    pub traversed_path: Option<Vec<PDAConfiguration>>,
+    pub traversed_path: Option<Vec<Option<PDARule>>>,
 }
 
 impl DPDA {
@@ -133,7 +155,7 @@ impl DPDA {
         cfg: PDAConfiguration,
         accept_states: Vec<u32>,
         rulebook: DPDARulebook,
-        traversed_path: Option<Vec<PDAConfiguration>>,
+        traversed_path: Option<Vec<Option<PDARule>>>,
     ) -> DPDA {
         DPDA {
             _current_cfg: cfg,
@@ -152,15 +174,19 @@ impl DPDA {
     }
 
     pub fn read_character(&mut self, character: char) {
+        let save_path = self.traversed_path.is_some();
+        if save_path {
+            let rule = self.rulebook
+                .rule_for(&self.current_cfg(), Some(character))
+                .cloned();
+            self.traversed_path.as_mut().unwrap().push(rule);
+        }
         if let Some(cfg) = self.rulebook
             .next_configuration(&self.current_cfg(), Some(character))
         {
             self._current_cfg = cfg
         } else {
             self._current_cfg = self.current_cfg().stuck()
-        }
-        if let &mut Some(ref mut traversed_path) = &mut self.traversed_path {
-            traversed_path.push(self._current_cfg.clone())
         }
     }
 
@@ -190,12 +216,11 @@ pub struct DPDADesign {
 
 pub struct DPDADesignResult {
     pub cfg: PDAConfiguration,
-    pub path: Option<Vec<PDAConfiguration>>,
+    pub path: Option<Vec<Option<PDARule>>>,
     pub ok: bool,
 }
 
 impl DPDADesign {
-
     pub fn new(start: u32, bottom: char, accept: Vec<u32>, rulebook: DPDARulebook) -> DPDADesign {
         DPDADesign {
             start_state: start,
@@ -224,7 +249,7 @@ impl DPDADesign {
     pub fn accepts(&self, string: String) -> DPDADesignResult {
         let mut dpda = self.to_dpda();
         dpda.read_string(string);
-        DPDADesignResult{
+        DPDADesignResult {
             ok: dpda.accepting(),
             cfg: dpda.current_cfg(),
             path: dpda.traversed_path,
@@ -240,10 +265,7 @@ impl DPDADesign {
         }
         DPDA::new(
             start_cfg,
-            self.accept_states
-                .iter()
-                .cloned()
-                .collect(),
+            self.accept_states.iter().cloned().collect(),
             self.rulebook.clone(),
             path,
         )
