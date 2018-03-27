@@ -4,8 +4,8 @@ extern crate itertools;
 
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_yaml;
 extern crate serde;
+extern crate serde_yaml;
 
 mod args;
 mod cfg;
@@ -135,7 +135,7 @@ fn main() {
             let result = dpda_design.accepts(text.clone());
             if let Some(path) = result.path {
                 println!(
-                    "{}",
+                    "{} -> [{}]",
                     join(
                         path.iter()
                             .cloned()
@@ -146,7 +146,8 @@ fn main() {
                             })
                             .collect::<Vec<String>>(),
                         " -> "
-                    )
+                    ),
+                    result.cfg.state,
                 );
             }
             if result.ok {
