@@ -460,7 +460,6 @@ mod tests {
     fn load_design() {
         let rulebook = get_rulebook();
         let dpda_design = DPDADesign::new(1, '$', vec![1], rulebook);
-        //println!("{}", serde_yaml::to_string(&dpda_design).unwrap());
         let dpda_design_from_sample_file = DPDADesign::load("sample/pda/brackets.yaml").unwrap();
         assert_eq!(dpda_design, dpda_design_from_sample_file);
     }
