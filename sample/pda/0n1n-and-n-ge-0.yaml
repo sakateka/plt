@@ -4,33 +4,33 @@ accept_by_empty_stack: true
 accept_states: [0]
 rulebook:
   rules:
-    - state: {State:0}
+    - state: 0
       character: '0'
       pop_character: Z
-      next_state: {State:0}
+      next_state: 0
       push_characters: ['0', Z]
-    - state: {State:0}
+    - state: 0
       character: '0'
       pop_character: '0'
-      next_state: {State:0}
+      next_state: 0
       push_characters: ['0', '0']
-    - state: {State:0}
+    - state: 0
       character: '1'
       pop_character: '0'
-      next_state: {State:1}
+      next_state: 1
       push_characters: []
-    - state: {State:1}
+    - state: 1
       character: '1'
       pop_character: '0'
-      next_state: {State:1}
+      next_state: 1
       push_characters: []
-    - state: {State:1}
+    - state: 1
       character: ~
       pop_character: Z
-      next_state: {State:0}
+      next_state: 0
       push_characters: []
-    - state: {State:0}
+    - state: 0
       character: ~
       pop_character: Z
-      next_state: {State:0}
+      next_state: 0
       push_characters: []

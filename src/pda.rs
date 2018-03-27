@@ -5,12 +5,20 @@ use std::fs::File;
 use std::error::Error;
 use std::io::{self, BufRead, BufReader};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Hash, Clone, Copy)]
 pub enum PDAState {
     State(u32),
     Stuck,
 }
+
+impl PDAState {
+    pub fn new(id: u32) -> PDAState {
+        PDAState::State(id)
+    }
+}
+
 impl Eq for PDAState {}
+
 impl fmt::Display for PDAState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -24,13 +32,38 @@ impl fmt::Display for PDAState {
     }
 }
 
-impl PDAState {
-    pub fn new(id: u32) -> PDAState {
-        PDAState::State(id)
+impl<'de> ::serde::Deserialize<'de> for PDAState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        struct Visitor;
+
+        impl<'de> ::serde::de::Visitor<'de> for Visitor {
+            type Value = PDAState;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("positive integer")
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<PDAState, E>
+            where
+                E: ::serde::de::Error,
+            {
+                if value <= ::std::u32::MAX as u64 {
+                    Ok(PDAState::State(value as u32))
+                } else {
+                    Err(E::custom(format!("too bit number {}", value)))
+                }
+            }
+        }
+
+        // Deserialize the PDAState from a u64.
+        deserializer.deserialize_u64(Visitor)
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct PDAConfiguration {
     pub state: PDAState,
     pub stack: Vec<char>,
@@ -55,7 +88,7 @@ impl PDAConfiguration {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Deserialize, Clone)]
 pub struct PDARule {
     pub state: PDAState,
     pub character: Option<char>,
@@ -123,7 +156,7 @@ impl PDARule {
     }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Deserialize, Clone)]
 pub struct DPDARulebook {
     rules: Vec<PDARule>,
 }
@@ -202,9 +235,9 @@ impl DPDA {
     }
 
     pub fn next_configuration(&mut self, character: char) -> PDAConfiguration {
-
         let mut current_cfg = self._current_cfg.clone();
-        let may_be_cfg = self.rulebook.next_configuration(&current_cfg, Some(character));
+        let may_be_cfg = self.rulebook
+            .next_configuration(&current_cfg, Some(character));
         if may_be_cfg.is_none() {
             current_cfg = self.rulebook.follow_free_moves(current_cfg)
         }
@@ -214,7 +247,9 @@ impl DPDA {
             let rule = self.next_rule(&current_cfg, character);
             self.traversed_path.as_mut().unwrap().push(rule);
         }
-        if let Some(cfg) = self.rulebook.next_configuration(&current_cfg, Some(character)) {
+        if let Some(cfg) = self.rulebook
+            .next_configuration(&current_cfg, Some(character))
+        {
             cfg
         } else {
             self._current_cfg.stuck()
@@ -222,9 +257,7 @@ impl DPDA {
     }
 
     pub fn next_rule(&self, cfg: &PDAConfiguration, character: char) -> Option<PDARule> {
-        self.rulebook
-            .rule_for(&cfg, Some(character))
-            .cloned()
+        self.rulebook.rule_for(&cfg, Some(character)).cloned()
     }
 
     pub fn current_cfg(&self) -> PDAConfiguration {
@@ -246,10 +279,9 @@ impl DPDA {
         }
         eaten
     }
-
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct DPDADesign {
     pub start_state: u32,
     pub bottom_character: char,
