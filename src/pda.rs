@@ -222,9 +222,10 @@ impl DPDA {
     }
 
     pub fn accepting(&self) -> bool {
-        let accept = self.accept_states.contains(&self.current_cfg().state);
+        let cfg = self.current_cfg();
+        let accept = self.accept_states.contains(&cfg.state);
         if self.accept_by_empty_stack {
-            accept && self.current_cfg().stack.is_empty()
+            accept && cfg.stack.is_empty()
         } else {
             accept
         }
