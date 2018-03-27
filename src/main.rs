@@ -150,7 +150,7 @@ fn main() {
                 );
             }
             if result.ok {
-                println!("OK");
+                println!("{} -> OK", text);
             } else {
                 let msg = if text.len() == result.eaten_part.len() {
                     "EOL but not accepted".to_string()
@@ -161,7 +161,7 @@ fn main() {
                         result.eaten_part
                     )
                 };
-                println!("ERR: {}, current {:?}", msg, result.cfg);
+                println!("{} -> ERR: {}, current {:?}", text, msg, result.cfg);
             }
         }
     }
