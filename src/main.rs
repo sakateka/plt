@@ -131,19 +131,17 @@ fn main() {
         let buf = BufReader::new(input);
         for line in buf.lines() {
             let text = line.unwrap();
-            let result = dpda_design.accepts(text);
+            let result = dpda_design.accepts(text.clone());
             if let Some(path) = result.path {
                 println!(
                     "{}",
                     join(
                         path.iter()
                             .cloned()
-                            .map(|x| {
-                                if let Some(rule) =  x {
-                                    format!("{}", rule)
-                                } else {
-                                    String::new()
-                                }
+                            .map(|x| if let Some(rule) = x {
+                                format!("{}", rule)
+                            } else {
+                                String::new()
                             })
                             .collect::<Vec<String>>(),
                         " -> "
@@ -153,7 +151,16 @@ fn main() {
             if result.ok {
                 println!("OK");
             } else {
-                println!("ERR: {:?}", result.cfg);
+                let msg = if text.len() == result.eaten_part.len() {
+                    "EOL but not accepted".to_string()
+                } else {
+                    format!(
+                        "Stuck after {} chars '{}'",
+                        result.eaten_part.len(),
+                        result.eaten_part
+                    )
+                };
+                println!("ERR: {}, current {:?}", msg, result.cfg);
             }
         }
     }

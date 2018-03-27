@@ -5,40 +5,61 @@ use std::fs::File;
 use std::error::Error;
 use std::io::{self, BufRead, BufReader};
 
-#[derive(Debug, PartialEq, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Clone, Copy)]
+pub enum PDAState {
+    State(u32),
+    Stuck,
+}
+impl Eq for PDAState {}
+impl fmt::Display for PDAState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                &PDAState::State(num) => format!("{}", num),
+                &PDAState::Stuck => format!("STUCK"),
+            }
+        )
+    }
+}
+
+impl PDAState {
+    pub fn new(id: u32) -> PDAState {
+        PDAState::State(id)
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct PDAConfiguration {
-    #[serde(skip_deserializing)]
-    stuck: bool,
-    pub state: u32,
+    pub state: PDAState,
     pub stack: Vec<char>,
 }
 
 impl PDAConfiguration {
     pub fn new(state: u32, stack: Vec<char>) -> PDAConfiguration {
         PDAConfiguration {
-            stuck: false,
-            state: state,
+            state: PDAState::State(state),
             stack: stack,
         }
     }
     pub fn stuck(&self) -> PDAConfiguration {
         PDAConfiguration {
-            stuck: true,
-            state: self.state,
+            state: PDAState::Stuck,
             stack: self.stack.clone(),
         }
     }
 
     pub fn is_stuck(&self) -> bool {
-        self.stuck
+        self.state == PDAState::Stuck
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct PDARule {
-    pub state: u32,
+    pub state: PDAState,
     pub character: Option<char>,
-    pub next_state: u32,
+    pub next_state: PDAState,
     pub pop_character: Option<char>,
     pub push_characters: Vec<char>,
 }
@@ -72,9 +93,9 @@ impl PDARule {
         push_characters: Vec<char>,
     ) -> PDARule {
         PDARule {
-            state: state,
+            state: PDAState::new(state),
             character: character,
-            next_state: next_state,
+            next_state: PDAState::new(next_state),
             pop_character: pop_character,
             push_characters: push_characters,
         }
@@ -86,7 +107,6 @@ impl PDARule {
 
     pub fn follow(&self, cfg: &PDAConfiguration) -> PDAConfiguration {
         PDAConfiguration {
-            stuck: false,
             state: self.next_state.clone(),
             stack: self.next_stack(cfg),
         }
@@ -103,7 +123,7 @@ impl PDARule {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct DPDARulebook {
     rules: Vec<PDARule>,
 }
@@ -145,7 +165,7 @@ impl DPDARulebook {
 
 pub struct DPDA {
     pub _current_cfg: PDAConfiguration,
-    pub accept_states: Vec<u32>,
+    pub accept_states: Vec<PDAState>,
     pub rulebook: DPDARulebook,
     pub traversed_path: Option<Vec<Option<PDARule>>>,
 }
@@ -159,7 +179,7 @@ impl DPDA {
     ) -> DPDA {
         DPDA {
             _current_cfg: cfg,
-            accept_states: accept_states,
+            accept_states: accept_states.iter().map(|x| PDAState::new(*x)).collect(),
             rulebook: rulebook,
             traversed_path: traversed_path,
         }
@@ -170,7 +190,7 @@ impl DPDA {
     }
 
     pub fn is_stuck(&self) -> bool {
-        self.current_cfg().is_stuck()
+        self._current_cfg.is_stuck()
     }
 
     pub fn read_character(&mut self, character: char) {
@@ -190,13 +210,16 @@ impl DPDA {
         }
     }
 
-    pub fn read_string(&mut self, string: String) {
+    pub fn read_string(&mut self, string: String) -> String {
+        let mut eaten = String::new();
         for character in string.chars() {
             if self.is_stuck() {
                 break;
             }
+            eaten.push(character);
             self.read_character(character);
         }
+        eaten
     }
 
     pub fn current_cfg(&self) -> PDAConfiguration {
@@ -204,7 +227,7 @@ impl DPDA {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct DPDADesign {
     pub start_state: u32,
     pub bottom_character: char,
@@ -215,9 +238,10 @@ pub struct DPDADesign {
 }
 
 pub struct DPDADesignResult {
+    pub ok: bool,
     pub cfg: PDAConfiguration,
     pub path: Option<Vec<Option<PDARule>>>,
-    pub ok: bool,
+    pub eaten_part: String,
 }
 
 impl DPDADesign {
@@ -248,11 +272,12 @@ impl DPDADesign {
 
     pub fn accepts(&self, string: String) -> DPDADesignResult {
         let mut dpda = self.to_dpda();
-        dpda.read_string(string);
+        let eaten_part = dpda.read_string(string);
         DPDADesignResult {
             ok: dpda.accepting(),
             cfg: dpda.current_cfg(),
             path: dpda.traversed_path,
+            eaten_part: eaten_part,
         }
     }
 
@@ -297,7 +322,7 @@ mod tests {
         let rule = PDARule::new(1, Some('('), 2, Some('$'), vec!['b', '$']);
         let cfg = PDAConfiguration::new(1, vec!['$']);
         let new_cfg = rule.follow(&cfg);
-        assert!(new_cfg.state == 2 && new_cfg.stack == vec!['$', 'b']);
+        assert!(new_cfg.state == PDAState::new(2) && new_cfg.stack == vec!['$', 'b']);
     }
 
     #[test]
@@ -360,7 +385,7 @@ mod tests {
         let cfg = PDAConfiguration::new(2, vec!['$']);
         let rulebook = get_rulebook();
 
-        assert_eq!(rulebook.follow_free_moves(cfg).state, 1)
+        assert_eq!(rulebook.follow_free_moves(cfg).state, PDAState::new(1))
     }
 
     #[test]
@@ -377,6 +402,7 @@ mod tests {
     fn load_design() {
         let rulebook = get_rulebook();
         let dpda_design = DPDADesign::new(1, '$', vec![1], rulebook);
+        println!("{}", serde_yaml::to_string(&dpda_design).unwrap());
         let dpda_design_from_sample_file = DPDADesign::load("sample/pda-config.yaml").unwrap();
         assert_eq!(dpda_design, dpda_design_from_sample_file);
     }
