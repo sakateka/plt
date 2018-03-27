@@ -167,6 +167,7 @@ pub struct DPDA {
     pub _current_cfg: PDAConfiguration,
     pub accept_states: Vec<PDAState>,
     pub rulebook: DPDARulebook,
+    pub accept_by_empty_stack: bool,
     pub traversed_path: Option<Vec<Option<PDARule>>>,
 }
 
@@ -175,39 +176,63 @@ impl DPDA {
         cfg: PDAConfiguration,
         accept_states: Vec<u32>,
         rulebook: DPDARulebook,
+        accept_by_empty_stack: bool,
         traversed_path: Option<Vec<Option<PDARule>>>,
     ) -> DPDA {
         DPDA {
             _current_cfg: cfg,
             accept_states: accept_states.iter().map(|x| PDAState::new(*x)).collect(),
             rulebook: rulebook,
+            accept_by_empty_stack: accept_by_empty_stack,
             traversed_path: traversed_path,
         }
     }
 
     pub fn accepting(&self) -> bool {
-        self.accept_states.contains(&self.current_cfg().state)
+        let accept = self.accept_states.contains(&self.current_cfg().state);
+        if self.accept_by_empty_stack {
+            accept && self.current_cfg().stack.is_empty()
+        } else {
+            accept
+        }
     }
 
     pub fn is_stuck(&self) -> bool {
         self._current_cfg.is_stuck()
     }
 
-    pub fn read_character(&mut self, character: char) {
+    pub fn next_configuration(&mut self, character: char) -> PDAConfiguration {
+
+        let mut current_cfg = self._current_cfg.clone();
+        let may_be_cfg = self.rulebook.next_configuration(&current_cfg, Some(character));
+        if may_be_cfg.is_none() {
+            current_cfg = self.rulebook.follow_free_moves(current_cfg)
+        }
+
         let save_path = self.traversed_path.is_some();
         if save_path {
-            let rule = self.rulebook
-                .rule_for(&self.current_cfg(), Some(character))
-                .cloned();
+            let rule = self.next_rule(&current_cfg, character);
             self.traversed_path.as_mut().unwrap().push(rule);
         }
-        if let Some(cfg) = self.rulebook
-            .next_configuration(&self.current_cfg(), Some(character))
-        {
-            self._current_cfg = cfg
+        if let Some(cfg) = self.rulebook.next_configuration(&current_cfg, Some(character)) {
+            cfg
         } else {
-            self._current_cfg = self.current_cfg().stuck()
+            self._current_cfg.stuck()
         }
+    }
+
+    pub fn next_rule(&self, cfg: &PDAConfiguration, character: char) -> Option<PDARule> {
+        self.rulebook
+            .rule_for(&cfg, Some(character))
+            .cloned()
+    }
+
+    pub fn current_cfg(&self) -> PDAConfiguration {
+        self.rulebook.follow_free_moves(self._current_cfg.clone())
+    }
+
+    pub fn read_character(&mut self, character: char) {
+        self._current_cfg = self.next_configuration(character)
     }
 
     pub fn read_string(&mut self, string: String) -> String {
@@ -222,9 +247,6 @@ impl DPDA {
         eaten
     }
 
-    pub fn current_cfg(&self) -> PDAConfiguration {
-        self.rulebook.follow_free_moves(self._current_cfg.clone())
-    }
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -233,6 +255,7 @@ pub struct DPDADesign {
     pub bottom_character: char,
     pub accept_states: Vec<u32>,
     pub rulebook: DPDARulebook,
+    pub accept_by_empty_stack: bool,
     #[serde(skip_deserializing)]
     pub remember_traversed_path: bool,
 }
@@ -251,6 +274,7 @@ impl DPDADesign {
             bottom_character: bottom,
             accept_states: accept,
             rulebook: rulebook,
+            accept_by_empty_stack: false,
             remember_traversed_path: false,
         }
     }
@@ -292,6 +316,7 @@ impl DPDADesign {
             start_cfg,
             self.accept_states.iter().cloned().collect(),
             self.rulebook.clone(),
+            self.accept_by_empty_stack,
             path,
         )
     }
@@ -354,7 +379,7 @@ mod tests {
         let accept_states: Vec<u32> = vec![1];
         let rulebook = get_rulebook();
 
-        let mut dpda = DPDA::new(cfg, accept_states, rulebook, None);
+        let mut dpda = DPDA::new(cfg, accept_states, rulebook, false, None);
 
         assert!(dpda.accepting(), "Initial state not accepting!");
         dpda.read_string("(()".to_string());
@@ -402,8 +427,8 @@ mod tests {
     fn load_design() {
         let rulebook = get_rulebook();
         let dpda_design = DPDADesign::new(1, '$', vec![1], rulebook);
-        println!("{}", serde_yaml::to_string(&dpda_design).unwrap());
-        let dpda_design_from_sample_file = DPDADesign::load("sample/pda-config.yaml").unwrap();
+        //println!("{}", serde_yaml::to_string(&dpda_design).unwrap());
+        let dpda_design_from_sample_file = DPDADesign::load("sample/pda/brackets.yaml").unwrap();
         assert_eq!(dpda_design, dpda_design_from_sample_file);
     }
 }

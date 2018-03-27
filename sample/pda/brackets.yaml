@@ -1,5 +1,6 @@
 start_state: 1
 bottom_character: $
+accept_by_empty_stack: false
 accept_states: [1]
 rulebook:
   rules:
