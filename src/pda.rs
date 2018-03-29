@@ -118,6 +118,7 @@ impl fmt::Display for PDARule {
 }
 
 impl PDARule {
+    #[allow(unused)]
     pub fn new(
         state: u32,
         character: Option<char>,
@@ -162,6 +163,7 @@ pub struct DPDARulebook {
 }
 
 impl DPDARulebook {
+    #[allow(unused)]
     pub fn new(rules: Vec<PDARule>) -> DPDARulebook {
         DPDARulebook { rules: rules }
     }
@@ -301,6 +303,7 @@ pub struct DPDADesignResult {
 }
 
 impl DPDADesign {
+    #[allow(unused)]
     pub fn new(start: u32, bottom: char, accept: Vec<u32>, rulebook: DPDARulebook) -> DPDADesign {
         DPDADesign {
             start_state: start,
