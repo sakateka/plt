@@ -33,6 +33,11 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Show all sequences together with duplicates"),
                 )
                 .arg(
+                    Arg::with_name("chomsky")
+                        .long("chomsky")
+                        .help("Chomsky Normal Form"),
+                )
+                .arg(
                     Arg::with_name("CFG")
                         .help("Context-Free Grammar rules file to use")
                         .required(true)

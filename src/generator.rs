@@ -41,7 +41,7 @@ impl fmt::Display for GeneratedSet {
 impl Generator {
     pub fn new(grammar: cfg::CFG, lmin: u32, lmax: u32, left: bool) -> Generator {
         let mut rules: HashMap<cfg::Symbol, Vec<Vec<cfg::Symbol>>> = HashMap::new();
-        for rule in grammar.simplify().productions {
+        for rule in grammar.productions {
             let mut symbols = match rules.get(&cfg::Symbol::N(rule.left.clone())) {
                 Some(s) => s.clone(),
                 None => Vec::new(),

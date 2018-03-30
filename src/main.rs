@@ -9,26 +9,34 @@ extern crate serde_yaml;
 
 mod args;
 mod cfg;
-mod generator;
 mod dfa;
+mod generator;
 mod pda;
 
-use std::collections::HashSet;
-use std::path::Path;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
-use generator::{GeneratedItem, GeneratedSet, Generator};
 use cfg::{Symbol, CFG};
 use dfa::DFA;
-use pda::DPDADesign;
+use generator::{GeneratedItem, GeneratedSet, Generator};
 use itertools::join;
+use pda::DPDADesign;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
+use std::path::Path;
 
 fn main() {
     let app = args::build_app("plt");
 
     if let Some(matches) = app.subcommand_matches("gen") {
         let grammar = matches.value_of("CFG").unwrap();
-        let cfg = CFG::parse(grammar).unwrap();
+        let cfg = CFG::parse(grammar)
+            .and_then(|x| {
+                Ok(if matches.is_present("chomsky") {
+                    x.chomsky()
+                } else {
+                    x.simplify()
+                })
+            })
+            .unwrap();
         let mut min: u32 = 0;
         if matches.is_present("len-min") {
             min = value_t_or_exit!(matches, "len-min", u32);
@@ -146,10 +154,12 @@ fn main() {
                     join(
                         path.iter()
                             .cloned()
-                            .map(|x| if let Some(rule) = x {
-                                format!("{}", rule)
-                            } else {
-                                String::new()
+                            .map(|x| {
+                                if let Some(rule) = x {
+                                    format!("{}", rule)
+                                } else {
+                                    String::new()
+                                }
                             })
                             .collect::<Vec<String>>(),
                         " -> "
