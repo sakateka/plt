@@ -1,8 +1,8 @@
-use std::fmt;
-use std::io::{self, BufRead, BufReader};
-use std::fs::File;
-use std::collections::{HashMap, HashSet};
 use itertools::join;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
 
 #[derive(Debug, Hash, PartialEq, Clone, PartialOrd, Ord)]
 pub struct Nonterminal {
@@ -105,6 +105,10 @@ impl Symbol {
             &Symbol::T(_) => None,
             &Symbol::N(ref x) => Some(&x),
         }
+    }
+    pub fn merge(set: &[Symbol]) -> Symbol {
+        let name = set.iter().map(|x| format!("{}", x)).collect::<String>();
+        Symbol::N(Nonterminal::new(name, 0))
     }
 }
 
@@ -220,6 +224,9 @@ impl CFG {
             ));
         }
 
+        if rule[0].chars().count() == 0 {
+            return Err(io::Error::new(io::ErrorKind::Other, "Missing left Symbol"));
+        }
         let left = Symbol::new(rule[0].to_string());
         if left.is_terminal() {
             return Err(io::Error::new(
@@ -300,13 +307,9 @@ impl CFG {
         while changed {
             changed = false;
             for rule in &self.productions {
-                if rule.right.is_empty() {
-                    if nullable.insert(rule.left.clone()) {
-                        changed = true;
-                    }
-                }
+                // rule N -> epsilon or
                 // if the rule contains only Nonterminal-s and they all lead to epsilon
-                if rule.right.iter().fold(true, |acc, x| {
+                if rule.right.is_empty() || rule.right.iter().fold(true, |acc, x| {
                     if !acc {
                         acc
                     } else {
@@ -321,14 +324,11 @@ impl CFG {
         }
 
         let mut new_rules: HashSet<Production> = HashSet::new();
-        let mut start_hash_epsilon = false;
-        for rule in &self.productions {
+        self.productions.iter().for_each(|rule| {
             if !rule.right.is_empty() {
                 new_rules.insert(rule.clone());
-            } else {
-                start_hash_epsilon = rule.left == self.start;
             }
-        }
+        });
         for rule in &self.productions {
             if rule.right
                 .iter()
@@ -367,13 +367,14 @@ impl CFG {
             }
         }
         let mut start = self.start.clone();
-        if nullable.contains(&self.start) && start_hash_epsilon {
-            // if ε in L(G) add 'S1 -> ε | S'
-            // where S1 pick from {ALPHA}\{cfg.variables}
-            let new_start = start.inc_sub_index();
-            new_rules.insert(Production::new(new_start.clone(), Vec::new()));
-            new_rules.insert(Production::new(new_start.clone(), vec![Symbol::N(start)]));
-            start = new_start;
+        // if ε in L(G) add 'S -> ε'
+        if nullable.contains(&self.start) {
+            // if S in right hand side of any rule
+            // instead 'S -> ε' add 'S1 -> S | ε'
+            let cfg = self.remove_start_from_rhs();
+            new_rules.insert(Production::new(cfg.start.clone(), Vec::new()));
+            new_rules.insert(Production::new(cfg.start.clone(), vec![Symbol::N(start)]));
+            start = cfg.start;
         }
         CFG::new(start, new_rules)
     }
@@ -494,6 +495,88 @@ impl CFG {
         }
         CFG::new(self.start.clone(), productions)
     }
+
+    pub fn remove_start_from_rhs(&self) -> CFG {
+        let mut start = self.start.clone();
+        let mut productions = self.productions.clone();
+
+        let start_in_rhs = self.productions.iter().any(|rule| {
+            rule.right
+                .iter()
+                .any(|x| x.as_nonterminal() == Some(&self.start))
+        });
+        if start_in_rhs {
+            let vars = self.variables();
+            start = start.inc_sub_index();
+            while vars.contains(&start) {
+                start = start.inc_sub_index();
+            }
+            productions.insert(Production::new(
+                start.clone(),
+                vec![Symbol::N(self.start.clone())],
+            ));
+        }
+        CFG::new(start, productions)
+    }
+
+    pub fn chomsky(&self) -> CFG {
+        let cfg = self.remove_useless_rules()
+            .remove_unreachable_rules()
+            .remove_start_from_rhs()
+            .remove_epsilon_rules()
+            .remove_unit_rules();
+
+        // Eliminate all rules having more than two symbols on the right-hand side.
+        let mut new_productions = HashSet::new();
+        for rule in cfg.productions {
+            if rule.right.len() <= 2 {
+                new_productions.insert(rule.clone());
+                continue;
+            }
+            let mut split = rule.right.split_at(1);
+            let mut left = Symbol::merge(split.1);
+            new_productions.insert(Production::new(
+                rule.left.clone(),
+                vec![split.0[0].clone(), left.clone()],
+            ));
+            loop {
+                if split.1.len() == 2 {
+                    new_productions.insert(Production::new(
+                        left.as_nonterminal().unwrap().to_owned(),
+                        split.1.to_vec(),
+                    ));
+                    break;
+                }
+                split = split.1.split_at(1);
+                let mut new_rule =
+                    Production::new(left.as_nonterminal().unwrap().to_owned(), split.0.to_vec());
+                left = Symbol::merge(split.1);
+                new_rule.right.push(left.clone());
+                new_productions.insert(new_rule);
+            }
+        }
+
+        // Eliminate all rules of the form A →  u₁u₂, where u₁ and u₂ are not both variables.
+        let mut productions = HashSet::new();
+        for rule in new_productions {
+            if rule.right.iter().all(|x| x.is_nonterminal()) {
+                productions.insert(rule);
+            } else if rule.right.len() == 1 && rule.right[0].is_terminal() {
+                productions.insert(rule);
+            } else {
+                let mut new_rule = rule.clone();
+                for (idx, sym) in rule.right.into_iter().enumerate() {
+                    if sym.is_terminal() {
+                        let left = Nonterminal::new(format!("{}", sym), 0);
+                        productions.insert(Production::new(left.clone(), vec![sym]));
+                        new_rule.right[idx] = Symbol::N(left);
+                    }
+                }
+                productions.insert(new_rule);
+            }
+        }
+        CFG::new(cfg.start, productions)
+    }
 }
 
 #[cfg(test)]
@@ -548,7 +631,26 @@ mod tests {
         assert_eq!(cfg.start, expected.start);
         assert_eq!(cfg.productions, expected.productions);
         assert_eq!(format!("{}", cfg), test_definition);
+        let text = Cursor::new("<a> -> ||||");
+        assert!(CFG::parse_from_reader(text).is_ok());
     }
+
+    #[test]
+    fn parse_mailformed_cfg() {
+        let text = Cursor::new("S -> <");
+        assert!(CFG::parse_from_reader(text).is_err(), "Eat unexpected '<'");
+        let text = Cursor::new("S -> <<a>");
+        assert!(CFG::parse_from_reader(text).is_err(), "Eat unexpected '<'");
+        let text = Cursor::new("S -> >");
+        assert!(CFG::parse_from_reader(text).is_err(), "Eat unexpected '>'");
+        let text = Cursor::new("S -> <a>>");
+        assert!(CFG::parse_from_reader(text).is_err(), "Eat unexpected '>'");
+        let text = Cursor::new(" -> <a>");
+        assert!(CFG::parse_from_reader(text).is_err(), "Missing left Symbol");
+        let text = Cursor::new("a -> ");
+        assert!(CFG::parse_from_reader(text).is_err(), "Terminal at LHS");
+    }
+
     #[test]
     fn remove_epsilon() {
         let test_rules = r#"
@@ -690,7 +792,6 @@ mod tests {
             "{}\n",
             join(
                 vec![
-                    // The starting character can be any character, so it is removed
                     "<S1> ->  | () | ()S | (S) | (S)S | S() | S()S | S(S) | S(S)S",
                     "S -> () | ()S | (S) | (S)S | S() | S()S | S(S) | S(S)S",
                 ],
@@ -701,4 +802,26 @@ mod tests {
         assert_eq!(format!("{}", cfg.simplify()), expected);
     }
 
+    #[test]
+    fn chomsky() {
+        let test_rules = "
+            A ->  BAB | B |
+            B -> 00 |
+        ";
+        let expected = format!(
+            "{}\n",
+            join(
+                vec![
+                    "<A1> ->  | <0><0> | AB | B<AB> | BA | BB",
+                    "<0> -> 0",
+                    "A -> <0><0> | AB | B<AB> | BA | BB",
+                    "<AB> -> AB",
+                    "B -> <0><0>",
+                ],
+                "\n"
+            )
+        );
+        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
+        assert_eq!(format!("{}", cfg.chomsky()), expected);
+    }
 }

@@ -72,6 +72,11 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .short("d")
                         .help("Debug output"),
                 )
+                .arg(
+                    Arg::with_name("chomsky")
+                        .long("chomsky")
+                        .help("Chomsky Normal Form"),
+                )
         )
         .subcommand(
             SubCommand::with_name("dfa")

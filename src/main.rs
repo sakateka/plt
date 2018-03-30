@@ -100,6 +100,13 @@ fn main() {
             if matches.is_present("debug") {
                 eprintln!("{:?}\n", cfg);
             }
+            if matches.is_present("chomsky") {
+                cfg = cfg.chomsky();
+                eprint!("Convert to Chomsky Normal Form\n{}", cfg);
+                if matches.is_present("debug") {
+                    eprintln!("{:?}\n", cfg);
+                }
+            }
         }
     } else if let Some(matches) = app.subcommand_matches("dfa") {
         let dfa_table = matches.value_of("DFA").unwrap();
