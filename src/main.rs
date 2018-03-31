@@ -130,9 +130,6 @@ fn main() {
             cfg = cfg.chomsky();
             verbose("Chomsky Normal Form", &cfg);
         }
-        if matches.is_present("verbose") {
-            eprintln!("Result:");
-        }
         output_stream.write_all(cfg.to_string().as_bytes()).unwrap();
     } else if let Some(matches) = app.subcommand_matches("dfa") {
         let dfa_table = matches.value_of("DFA").unwrap();
