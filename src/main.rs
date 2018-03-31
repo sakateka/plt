@@ -133,9 +133,7 @@ fn main() {
         if matches.is_present("verbose") {
             eprintln!("Result:");
         }
-        output_stream
-            .write_all(cfg.to_string().as_bytes())
-            .unwrap();
+        output_stream.write_all(cfg.to_string().as_bytes()).unwrap();
     } else if let Some(matches) = app.subcommand_matches("dfa") {
         let dfa_table = matches.value_of("DFA").unwrap();
         let debug = matches.is_present("debug");
@@ -205,13 +203,24 @@ fn main() {
             eprintln!("ERROR: {}\n{}", reason, cfg);
             process::exit(1);
         }
-        let chomsky_gen = Generator::new(cfg.chomsky(), min, max, true);
-        let gen = Generator::new(cfg, min, max, true);
-
         let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
 
-        let normal_set: HashSet<Vec<cfg::Symbol>> = gen.collect();
-        let chomsky_set: HashSet<Vec<cfg::Symbol>> = chomsky_gen.collect();
+        let chomsky_cfg = cfg.chomsky();
+        output_stream
+            .write_fmt(format_args!(
+                "Chomsky Normal Form\nG({{{}}}, {{{}}}, P, {}) where P:\n{}\n",
+                join(chomsky_cfg.terminals().iter().collect::<Vec<_>>(), ","),
+                join(chomsky_cfg.variables().iter().collect::<Vec<_>>(), ","),
+                chomsky_cfg.start,
+                chomsky_cfg,
+            ))
+            .unwrap();
+
+        let chomsky_gen = Generator::new(chomsky_cfg, min, max, true);
+        let gen = Generator::new(cfg, min, max, true);
+
+        let normal_set: HashSet<Vec<Symbol>> = gen.collect();
+        let chomsky_set: HashSet<Vec<Symbol>> = chomsky_gen.collect();
         if normal_set != chomsky_set {
             output_stream
                 .write(b"Sets of generated sequences do not match\n")

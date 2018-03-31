@@ -62,6 +62,7 @@ impl fmt::Display for Nonterminal {
 pub struct Terminal {
     pub symbol: char,
 }
+impl Eq for Terminal {}
 
 impl Terminal {
     pub fn new(from: char) -> Terminal {
@@ -273,6 +274,24 @@ impl CFG {
             productions.push(prod);
         }
         Ok(productions)
+    }
+
+    pub fn terminals(&self) -> HashSet<Terminal> {
+        let mut term = HashSet::new();
+        for rule in &self.productions {
+            term.extend(
+                rule.right
+                    .iter()
+                    .cloned()
+                    .filter(|x| !x.is_nonterminal())
+                    .map(|x| match x {
+                        Symbol::T(n) => n,
+                        _ => unreachable!(),
+                    })
+                    .collect::<HashSet<Terminal>>(),
+            );
+        }
+        term
     }
 
     pub fn variables(&self) -> HashSet<Nonterminal> {
