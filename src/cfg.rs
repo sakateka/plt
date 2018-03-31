@@ -372,9 +372,11 @@ impl CFG {
             // if S in right hand side of any rule
             // instead 'S -> ε' add 'S1 -> S | ε'
             let cfg = self.remove_start_from_rhs();
-            new_rules.insert(Production::new(cfg.start.clone(), Vec::new()));
-            new_rules.insert(Production::new(cfg.start.clone(), vec![Symbol::N(start)]));
-            start = cfg.start;
+            if start != cfg.start {
+                new_rules.insert(Production::new(cfg.start.clone(), vec![Symbol::N(start)]));
+                start = cfg.start
+            }
+            new_rules.insert(Production::new(start.clone(), Vec::new()));
         }
         CFG::new(start, new_rules)
     }
