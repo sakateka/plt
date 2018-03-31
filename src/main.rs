@@ -89,34 +89,39 @@ fn main() {
 
         let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
 
+        let converted = if matches.is_present("chomsky") {
+            cfg.simplify().chomsky()
+        } else {
+            cfg.simplify()
+        };
         output_stream
-            .write_fmt(format_args!("{}", cfg.simplify()))
+            .write_fmt(format_args!("{}\n", converted))
             .unwrap();
         if matches.is_present("verbose") {
-            eprint!("\nParsed CFG\n{}", cfg);
+            eprint!("\nParsed CFG\n{}\n", cfg);
             cfg = cfg.remove_epsilon_rules();
-            eprint!("Remove epsilon\n{}", cfg);
+            eprint!("Remove epsilon\n{}\n", cfg);
             if matches.is_present("debug") {
                 eprintln!("{:?}\n", cfg);
             }
             cfg = cfg.remove_unit_rules();
-            eprint!("Remove units\n{}", cfg);
+            eprint!("Remove units\n{}\n", cfg);
             if matches.is_present("debug") {
                 eprintln!("{:?}\n", cfg);
             }
             cfg = cfg.remove_useless_rules();
-            eprint!("Remove useless\n{}", cfg);
+            eprint!("Remove useless\n{}\n", cfg);
             if matches.is_present("debug") {
                 eprintln!("{:?}\n", cfg);
             }
             cfg = cfg.remove_unreachable_rules();
-            eprint!("Remove unreachable\n{}", cfg);
+            eprint!("Remove unreachable\n{}\n", cfg);
             if matches.is_present("debug") {
                 eprintln!("{:?}\n", cfg);
             }
             if matches.is_present("chomsky") {
                 cfg = cfg.chomsky();
-                eprint!("Convert to Chomsky Normal Form\n{}", cfg);
+                eprint!("Convert to Chomsky Normal Form\n{}\n", cfg);
                 if matches.is_present("debug") {
                     eprintln!("{:?}\n", cfg);
                 }
