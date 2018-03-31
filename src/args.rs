@@ -78,6 +78,12 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Debug output"),
                 )
                 .arg(
+                    Arg::with_name("reverse")
+                        .long("reverse")
+                        .short("r")
+                        .help("Reverse the order of steps for simplifying"),
+                )
+                .arg(
                     Arg::with_name("chomsky")
                         .long("chomsky")
                         .help("Chomsky Normal Form"),

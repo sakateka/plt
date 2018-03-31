@@ -87,46 +87,55 @@ fn main() {
         let grammar = matches.value_of("CFG").unwrap();
         let mut cfg = CFG::parse(grammar).unwrap();
 
-        let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
+        let mut output_stream = get_output_stream(matches.value_of("OUT"));
 
-        let converted = if matches.is_present("chomsky") {
-            cfg.simplify().chomsky()
-        } else {
-            cfg.simplify()
+        let verbose = |title: &str, cfg: &CFG| {
+            if matches.is_present("verbose") {
+                eprintln!("{}\n{}", title, cfg);
+            }
+            if matches.is_present("debug") {
+                eprintln!("{}\n{:?}\n", title, cfg);
+            }
         };
-        output_stream
-            .write_fmt(format_args!("{}\n", converted))
-            .unwrap();
-        if matches.is_present("verbose") {
-            eprint!("\nParsed CFG\n{}\n", cfg);
+        verbose("Parsed CFG", &cfg);
+        let remove_epsilon_and_unit = |mut cfg: CFG| -> CFG {
             cfg = cfg.remove_epsilon_rules();
-            eprint!("Remove epsilon\n{}\n", cfg);
-            if matches.is_present("debug") {
-                eprintln!("{:?}\n", cfg);
-            }
+            verbose("Remove epsilon", &cfg);
+
             cfg = cfg.remove_unit_rules();
-            eprint!("Remove units\n{}\n", cfg);
-            if matches.is_present("debug") {
-                eprintln!("{:?}\n", cfg);
-            }
+            verbose("Remove units", &cfg);
+
+            cfg
+        };
+
+        let remove_useless_and_unreachable = |mut cfg: CFG| -> CFG {
             cfg = cfg.remove_useless_rules();
-            eprint!("Remove useless\n{}\n", cfg);
-            if matches.is_present("debug") {
-                eprintln!("{:?}\n", cfg);
-            }
+            verbose("Remove useless", &cfg);
+
             cfg = cfg.remove_unreachable_rules();
-            eprint!("Remove unreachable\n{}\n", cfg);
-            if matches.is_present("debug") {
-                eprintln!("{:?}\n", cfg);
-            }
-            if matches.is_present("chomsky") {
-                cfg = cfg.chomsky();
-                eprint!("Convert to Chomsky Normal Form\n{}\n", cfg);
-                if matches.is_present("debug") {
-                    eprintln!("{:?}\n", cfg);
-                }
-            }
+            verbose("Remove unreachable", &cfg);
+
+            cfg
+        };
+        if matches.is_present("reverse") {
+            cfg = remove_useless_and_unreachable(cfg);
+            cfg = remove_epsilon_and_unit(cfg);
+        } else {
+            // default order
+            cfg = remove_epsilon_and_unit(cfg);
+            cfg = remove_useless_and_unreachable(cfg);
         }
+
+        if matches.is_present("chomsky") {
+            cfg = cfg.chomsky();
+            verbose("Chomsky Normal Form", &cfg);
+        }
+        if matches.is_present("verbose") {
+            eprintln!("Result:");
+        }
+        output_stream
+            .write_all(cfg.to_string().as_bytes())
+            .unwrap();
     } else if let Some(matches) = app.subcommand_matches("dfa") {
         let dfa_table = matches.value_of("DFA").unwrap();
         let debug = matches.is_present("debug");
