@@ -520,11 +520,11 @@ impl CFG {
     }
 
     pub fn chomsky(&self) -> CFG {
-        let cfg = self.remove_useless_rules()
-            .remove_unreachable_rules()
-            .remove_start_from_rhs()
+        let cfg = self.remove_start_from_rhs()
             .remove_epsilon_rules()
-            .remove_unit_rules();
+            .remove_unit_rules()
+            .remove_useless_rules()
+            .remove_unreachable_rules();
 
         // Eliminate all rules having more than two symbols on the right-hand side.
         let mut new_productions = HashSet::new();

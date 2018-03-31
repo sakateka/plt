@@ -133,5 +133,39 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Show derivation path"),
                 )
         )
+        .subcommand(
+            SubCommand::with_name("coursework")
+                .about("Course Work #7")
+                .arg(
+                    Arg::with_name("len-min")
+                        .long("len-min")
+                        .takes_value(true)
+                        .help("Minimum sequence lenght (default 0)"),
+                )
+                .arg(
+                    Arg::with_name("len-max")
+                        .long("len-max")
+                        .takes_value(true)
+                        .help("Maximum sequence lenght (default 8)"),
+                )
+                .arg(
+                    Arg::with_name("verbose")
+                        .long("verbose")
+                        .short("v")
+                        .help("Show generated sets"),
+                )
+                .arg(
+                    Arg::with_name("CFG")
+                        .help("Context-Free Grammar rules file to use")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("OUT")
+                        .help("Output file (default to stdout)")
+                        .required(false)
+                        .index(2),
+                )
+        )
         .get_matches()
 }
