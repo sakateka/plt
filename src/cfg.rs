@@ -135,7 +135,7 @@ impl Production {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CFG {
     pub start: Nonterminal,
     pub productions: HashSet<Production>,
@@ -161,7 +161,7 @@ impl fmt::Display for CFG {
         } else {
             if rules.is_empty() {
                 eprintln!("Empty rule set: {:?}", self);
-                return write!(f, "{} -> ", self.start);
+                return write!(f, "{} -> \n", self.start);
             }
         }
         for rule in &prods {
@@ -517,6 +517,37 @@ impl CFG {
             ));
         }
         CFG::new(start, productions)
+    }
+
+    pub fn is_normal_form(&self) -> Option<String> {
+        if self != &self.remove_start_from_rhs() {
+            Some(format!(
+                "The 'Start ({})' character is present in the right part of the rules",
+                self.start
+            ))
+        } else if self != &self.remove_start_from_rhs().remove_epsilon_rules() {
+            Some(format!("Epsilon rules are not excluded from grammar"))
+        } else if self != &self.remove_start_from_rhs()
+            .remove_epsilon_rules()
+            .remove_unit_rules()
+        {
+            Some(format!("There are Unit rules in the grammar"))
+        } else if self != &self.remove_start_from_rhs()
+            .remove_epsilon_rules()
+            .remove_unit_rules()
+            .remove_useless_rules()
+        {
+            Some(format!("There are non-generating characters in the grammar"))
+        } else if self != &self.remove_start_from_rhs()
+            .remove_epsilon_rules()
+            .remove_unit_rules()
+            .remove_useless_rules()
+            .remove_unreachable_rules()
+        {
+            Some(format!("There are unreachable characters in the grammar"))
+        } else {
+            None
+        }
     }
 
     pub fn chomsky(&self) -> CFG {

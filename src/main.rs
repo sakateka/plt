@@ -22,6 +22,27 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
 use std::path::Path;
+use std::process;
+
+pub fn get_output_stream(x: Option<&str>) -> Box<Write> {
+    match x {
+        Some(x) => {
+            let path = Path::new(x);
+            Box::new(File::create(&path).unwrap()) as Box<Write>
+        }
+        None => Box::new(io::stdout()) as Box<Write>,
+    }
+}
+
+pub fn get_input_stream(x: Option<&str>) -> Box<Read> {
+    match x {
+        Some(x) => {
+            let path = Path::new(x);
+            Box::new(File::create(&path).unwrap()) as Box<Read>
+        }
+        None => Box::new(io::stdin()) as Box<Read>,
+    }
+}
 
 fn main() {
     let app = args::build_app("plt");
@@ -47,13 +68,7 @@ fn main() {
         }
         let left = !matches.is_present("right");
         let gen = Generator::new(cfg, min, max, left);
-        let mut output_stream = match matches.value_of("OUT") {
-            Some(x) => {
-                let path = Path::new(x);
-                BufWriter::new(Box::new(File::create(&path).unwrap()) as Box<Write>)
-            }
-            None => BufWriter::new(Box::new(io::stdout()) as Box<Write>),
-        };
+        let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
         if matches.is_present("all") {
             for seq in gen {
                 output_stream
@@ -72,16 +87,7 @@ fn main() {
         let grammar = matches.value_of("CFG").unwrap();
         let mut cfg = CFG::parse(grammar).unwrap();
 
-        let mut output_stream = match matches.value_of("OUT") {
-            Some(x) => {
-                if matches.is_present("verbose") {
-                    eprintln!("Write simplified grammar to {:?}", x);
-                }
-                let path = Path::new(x);
-                Box::new(File::create(&path).unwrap()) as Box<Write>
-            }
-            None => Box::new(io::stdout()) as Box<Write>,
-        };
+        let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
 
         output_stream
             .write_fmt(format_args!("{}", cfg.simplify()))
@@ -120,25 +126,13 @@ fn main() {
         let dfa_table = matches.value_of("DFA").unwrap();
         let debug = matches.is_present("debug");
         let show_path = matches.is_present("path");
-        let mut dfa = DFA::parse(dfa_table, debug).unwrap();
-        let mut input = match matches.value_of("INPUT") {
-            Some(x) => {
-                let path = Path::new(x);
-                Box::new(File::open(&path).unwrap()) as Box<Read>
-            }
-            None => Box::new(io::stdin()) as Box<Read>,
-        };
+        let dfa = DFA::parse(dfa_table, debug).unwrap();
+        let input = get_input_stream(matches.value_of("INPUT"));
         dfa.check(input, show_path).unwrap();
     } else if let Some(matches) = app.subcommand_matches("dpda") {
         let dpda_spec = matches.value_of("DPDA").unwrap();
 
-        let mut input = match matches.value_of("INPUT") {
-            Some(x) => {
-                let path = Path::new(x);
-                Box::new(File::open(&path).unwrap()) as Box<Read>
-            }
-            None => Box::new(io::stdin()) as Box<Read>,
-        };
+        let input = get_input_stream(matches.value_of("INPUT"));
 
         let mut dpda_design = DPDADesign::load(dpda_spec).unwrap();
         dpda_design.remember_traversed_path = matches.is_present("path");
@@ -193,16 +187,14 @@ fn main() {
         if matches.is_present("len-max") {
             max = value_t_or_exit!(matches, "len-max", u32);
         }
+        if let Some(reason) = cfg.is_normal_form() {
+            eprintln!("ERROR: {}\n{}", reason, cfg);
+            process::exit(1);
+        }
         let chomsky_gen = Generator::new(cfg.chomsky(), min, max, true);
         let gen = Generator::new(cfg, min, max, true);
 
-        let mut output_stream = match matches.value_of("OUT") {
-            Some(x) => {
-                let path = Path::new(x);
-                BufWriter::new(Box::new(File::create(&path).unwrap()) as Box<Write>)
-            }
-            None => BufWriter::new(Box::new(io::stdout()) as Box<Write>),
-        };
+        let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
 
         let normal_set: HashSet<Vec<cfg::Symbol>> = gen.collect();
         let chomsky_set: HashSet<Vec<cfg::Symbol>> = chomsky_gen.collect();
@@ -224,7 +216,7 @@ fn main() {
             }
         } else {
             output_stream
-                .write(b"OK, the generated sets are equal!\n")
+                .write(b"OK! The generated sets are equal!\n")
                 .unwrap();
         }
         if matches.is_present("verbose") {
