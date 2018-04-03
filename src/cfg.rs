@@ -68,6 +68,9 @@ impl Terminal {
     pub fn new(from: char) -> Terminal {
         Terminal { symbol: from }
     }
+    pub fn is_a(&self, c: char) -> bool {
+        self.symbol == c
+    }
 }
 
 impl fmt::Display for Terminal {
@@ -101,6 +104,20 @@ impl Symbol {
     pub fn is_terminal(&self) -> bool {
         !self.is_nonterminal()
     }
+    pub fn is_eq_term(&self, c: char) -> bool {
+        match self {
+            &Symbol::T(ref t) => t.is_a(c),
+            &Symbol::N(_) => false,
+        }
+    }
+
+    pub fn is_eq_nonterm(&self, other: &Nonterminal) -> bool {
+        match self {
+            &Symbol::T(_) => false,
+            &Symbol::N(ref n) => n == other,
+        }
+    }
+
     pub fn as_nonterminal(&self) -> Option<&Nonterminal> {
         match self {
             &Symbol::T(_) => None,
@@ -129,6 +146,11 @@ pub struct Production {
 }
 
 impl Eq for Production {}
+impl AsRef<Production> for Production {
+    fn as_ref(&self) -> &Production {
+        &self
+    }
+}
 
 impl Production {
     pub fn new(l: Nonterminal, r: Vec<Symbol>) -> Production {
@@ -539,6 +561,19 @@ impl CFG {
         }
         CFG::new(start, productions)
     }
+
+    /*
+    pub fn add_new_start(&self) -> CFG {
+        let new_start = self.start.inc_sub_index();
+        let mut new_rule = Production::new(new_start.clone(), vec![Symbol::N(self.start.clone())]);
+        let mut productions = self.productions.clone();
+        while !productions.insert(new_rule.clone()) {
+            new_rule.left = new_rule.left.inc_sub_index();
+        }
+
+        CFG::new(new_rule.left.clone(), productions)
+    }
+    */
 
     pub fn is_normal_form(&self) -> Option<String> {
         if self != &self.remove_start_from_rhs() {

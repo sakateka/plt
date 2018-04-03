@@ -90,6 +90,34 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                 )
         )
         .subcommand(
+            SubCommand::with_name("earley")
+                .about("Check the string via Earley recognizer")
+                .arg(
+                    Arg::with_name("CFG")
+                        .help("Path to CFG")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("INPUT")
+                        .required(false)
+                        .help("Input stream (default: stdin)")
+                        .index(2),
+                )
+                .arg(
+                    Arg::with_name("simplify")
+                        .long("simplify")
+                        .short("s")
+                        .help("Use Simplified Form"),
+                )
+                .arg(
+                    Arg::with_name("chomsky")
+                        .long("chomsky")
+                        .short("c")
+                        .help("Use Chomsky Normal Form"),
+                )
+        )
+        .subcommand(
             SubCommand::with_name("dfa")
                 .about("Check the string via DFA")
                 .arg(

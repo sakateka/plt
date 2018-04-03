@@ -10,11 +10,13 @@ extern crate serde_yaml;
 mod args;
 mod cfg;
 mod dfa;
+mod earley;
 mod generator;
 mod pda;
 
 use cfg::{Symbol, CFG};
 use dfa::DFA;
+use earley::EarleyParser;
 use generator::{GeneratedItem, GeneratedSet, Generator};
 use itertools::{join, Itertools};
 use pda::DPDADesign;
@@ -47,6 +49,9 @@ pub fn get_input_stream(x: Option<&str>) -> Box<Read> {
 fn main() {
     let app = args::build_app("plt");
 
+    //
+    //// Gen
+    //
     if let Some(matches) = app.subcommand_matches("gen") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::parse(grammar)
@@ -83,6 +88,10 @@ fn main() {
                 ))
                 .unwrap();
         }
+
+    //
+    //// Simplify
+    //
     } else if let Some(matches) = app.subcommand_matches("simplify") {
         let grammar = matches.value_of("CFG").unwrap();
         let mut cfg = CFG::parse(grammar).unwrap();
@@ -131,6 +140,30 @@ fn main() {
             verbose("Chomsky Normal Form", &cfg);
         }
         output_stream.write_all(cfg.to_string().as_bytes()).unwrap();
+
+    //
+    //// EarleyParser
+    //
+    } else if let Some(matches) = app.subcommand_matches("earley") {
+        let grammar = matches.value_of("CFG").unwrap();
+        let mut cfg = CFG::parse(grammar).unwrap();
+        if matches.is_present("simplify") {
+            cfg = cfg.simplify()
+        }
+        if matches.is_present("chomsky") {
+            cfg = cfg.chomsky()
+        }
+        let input = get_input_stream(matches.value_of("INPUT"));
+        let earley = EarleyParser::new(&cfg);
+        let buf = BufReader::new(input);
+        for line in buf.lines() {
+            let text = line.unwrap();
+            earley.parse(text.to_string());
+        }
+
+    //
+    //// DFA
+    //
     } else if let Some(matches) = app.subcommand_matches("dfa") {
         let dfa_table = matches.value_of("DFA").unwrap();
         let debug = matches.is_present("debug");
@@ -138,6 +171,10 @@ fn main() {
         let dfa = DFA::parse(dfa_table, debug).unwrap();
         let input = get_input_stream(matches.value_of("INPUT"));
         dfa.check(input, show_path).unwrap();
+
+    //
+    //// DPDA
+    //
     } else if let Some(matches) = app.subcommand_matches("dpda") {
         let dpda_spec = matches.value_of("DPDA").unwrap();
 
@@ -185,6 +222,10 @@ fn main() {
                 println!("{} -> ERR: {}, current {:?}", text, msg, result.cfg);
             }
         }
+
+    //
+    //// Course Work
+    //
     } else if let Some(matches) = app.subcommand_matches("coursework") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::parse(grammar).expect("Parse CFG");
