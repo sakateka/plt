@@ -298,7 +298,7 @@ impl CFG {
         Ok(productions)
     }
 
-    pub fn terminals(&self) -> HashSet<Terminal> {
+    pub fn get_terminals(&self) -> HashSet<Terminal> {
         let mut term = HashSet::new();
         for rule in &self.productions {
             term.extend(
@@ -316,7 +316,7 @@ impl CFG {
         term
     }
 
-    pub fn variables(&self) -> HashSet<Nonterminal> {
+    pub fn get_variables(&self) -> HashSet<Nonterminal> {
         let mut vars = HashSet::new();
         for rule in &self.productions {
             vars.extend(
@@ -335,14 +335,7 @@ impl CFG {
         vars
     }
 
-    pub fn simplify(&self) -> CFG {
-        self.remove_epsilon_rules()
-            .remove_unit_rules()
-            .remove_useless_rules()
-            .remove_unreachable_rules()
-    }
-
-    pub fn remove_epsilon_rules(&self) -> CFG {
+    pub fn get_nullable(&self) -> HashSet<Nonterminal> {
         let mut nullable: HashSet<Nonterminal> = HashSet::new();
         let mut changed = true;
         while changed {
@@ -363,6 +356,18 @@ impl CFG {
                 }
             }
         }
+        return nullable;
+    }
+
+    pub fn simplify(&self) -> CFG {
+        self.remove_epsilon_rules()
+            .remove_unit_rules()
+            .remove_useless_rules()
+            .remove_unreachable_rules()
+    }
+
+    pub fn remove_epsilon_rules(&self) -> CFG {
+        let nullable = self.get_nullable();
 
         let mut new_rules: HashSet<Production> = HashSet::new();
         self.productions.iter().for_each(|rule| {
@@ -423,13 +428,13 @@ impl CFG {
     }
 
     pub fn remove_unit_rules(&self) -> CFG {
-        let mut unit_sets = self.variables()
+        let mut unit_sets = self.get_variables()
             .iter()
             .cloned()
             .map(|x| (x.clone(), vec![x].into_iter().collect()))
             .collect::<HashMap<Nonterminal, HashSet<Nonterminal>>>();
 
-        for nonterm in &self.variables() {
+        for nonterm in &self.get_variables() {
             let mut set = unit_sets.get_mut(nonterm).unwrap();
             let mut changed = true;
             while changed {
@@ -549,7 +554,7 @@ impl CFG {
                 .any(|x| x.as_nonterminal() == Some(&self.start))
         });
         if start_in_rhs {
-            let vars = self.variables();
+            let vars = self.get_variables();
             start = start.inc_sub_index();
             while vars.contains(&start) {
                 start = start.inc_sub_index();
@@ -593,7 +598,9 @@ impl CFG {
             .remove_unit_rules()
             .remove_useless_rules()
         {
-            Some(format!("There are non-generating characters in the grammar"))
+            Some(format!(
+                "There are non-generating characters in the grammar"
+            ))
         } else if self != &self.remove_start_from_rhs()
             .remove_epsilon_rules()
             .remove_unit_rules()
@@ -643,7 +650,8 @@ impl CFG {
             }
         }
 
-        // Eliminate all rules of the form A →  u₁u₂, where u₁ and u₂ are not both variables.
+        // Eliminate all rules of the form A →  u₁u₂,
+        // where u₁ and u₂ are not both variables.
         let mut productions = HashSet::new();
         for rule in new_productions {
             if rule.right.iter().all(|x| x.is_nonterminal()) {

@@ -158,7 +158,8 @@ fn main() {
         let buf = BufReader::new(input);
         for line in buf.lines() {
             let text = line.unwrap();
-            earley.parse(text.to_string());
+            let states = earley.parse(&text);
+            earley.print(&text, states);
         }
 
     //
@@ -247,8 +248,8 @@ fn main() {
         output_stream
             .write_fmt(format_args!(
                 "Chomsky Normal Form\nG({{{}}}, {{{}}}, P, {}) where P:\n{}\n",
-                join(chomsky_cfg.terminals().iter().collect::<Vec<_>>(), ","),
-                join(chomsky_cfg.variables().iter().collect::<Vec<_>>(), ","),
+                join(chomsky_cfg.get_terminals().iter().collect::<Vec<_>>(), ","),
+                join(chomsky_cfg.get_variables().iter().collect::<Vec<_>>(), ","),
                 chomsky_cfg.start,
                 chomsky_cfg,
             ))

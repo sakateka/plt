@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::fmt;
 
 #[derive(Debug, Hash, PartialEq, Clone)]
-struct State<'er> {
+pub struct State<'er> {
     rule: &'er cfg::Production,
     dot: usize,
     origin: usize,
@@ -75,7 +75,8 @@ impl<'er> EarleyParser<'er> {
         (0..(len + 2))
             .map(|x| {
                 if x == 0 {
-                    self.cfg.productions
+                    self.cfg
+                        .productions
                         .iter()
                         .filter(|x| x.left == self.cfg.start)
                         .map(|x| State {
@@ -91,7 +92,7 @@ impl<'er> EarleyParser<'er> {
             .collect::<Vec<_>>()
     }
 
-    pub fn parse(&self, text: String) -> bool {
+    pub fn parse(&self, text: &str) -> Vec<HashSet<State>> {
         let mut chart = self.init_states(text.chars().count());
         for (idx, letter) in text.chars().chain("\0".chars()).enumerate() {
             let mut changed = true;
@@ -114,26 +115,7 @@ impl<'er> EarleyParser<'er> {
                 }
             }
         }
-        let mut ret = false;
-        for (idx, state) in chart.iter().take(text.len() + 1).enumerate() {
-            let accepts = state
-                .iter()
-                .any(|s| s.rule.left == self.cfg.start && s.finished());
-            let (parsed, unparsed) = text.split_at(idx);
-            print!("({}) {}.{} ", idx, parsed, unparsed);
-            if accepts {
-                if !ret {
-                    ret = true;
-                }
-                println!("ACCEPTS");
-            } else {
-                println!("");
-            }
-            for i in state {
-                println!("\t{}", i);
-            }
-        }
-        ret
+        chart
     }
     fn completer(&self, state: &State<'er>, idx: usize, chart: &mut Vec<HashSet<State<'er>>>) {
         let links: Vec<_> = chart[state.origin].iter().cloned().collect();
@@ -163,5 +145,31 @@ impl<'er> EarleyParser<'er> {
                 states.insert(state.shift());
             }
         }
+    }
+    pub fn print(&self, text: &str, chart: Vec<HashSet<State<'er>>>) -> bool {
+        let mut ret = false;
+        let text_len = text.chars().count();
+        for (idx, state) in chart.iter().take(text_len + 1).enumerate() {
+            let accepts = state
+                .iter()
+                .any(|s| s.rule.left == self.cfg.start && s.finished() && s.origin == 0);
+            let (parsed, unparsed) = text.split_at(idx);
+            print!("({}) {}.{} ", idx, parsed, unparsed);
+            if accepts {
+                if !ret {
+                    ret = true;
+                }
+                if idx != text_len {
+                    print!("PARTIAL ");
+                }
+                println!("ACCEPTS");
+            } else {
+                println!("");
+            }
+            for i in state {
+                println!("\t{}", i);
+            }
+        }
+        ret
     }
 }
