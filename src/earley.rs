@@ -66,47 +66,83 @@ pub struct EarleyParser<'er> {
     cfg: &'er cfg::CFG,
 }
 
+pub struct Column<'er> {
+    states: HashSet<State<'er>>,
+    token: char,
+    index: usize,
+}
+impl<'er> Column<'er> {
+    pub fn new(token: char, index: usize) -> Column<'er> {
+        Column {
+            states: HashSet::new(),
+            token: token,
+            index: index,
+        }
+    }
+    pub fn from(states: HashSet<State<'er>>, token: char, index: usize) -> Column<'er> {
+        Column {
+            states: states,
+            token: token,
+            index: index,
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.states.len()
+    }
+    pub fn insert(&mut self, state: State<'er>) -> bool {
+        self.states.insert(state)
+    }
+}
+
 impl<'er> EarleyParser<'er> {
     pub fn new(grammar: &'er cfg::CFG) -> EarleyParser<'er> {
         EarleyParser { cfg: grammar }
     }
 
-    fn init_states(&self, len: usize) -> Vec<HashSet<State>> {
-        (0..(len + 2))
+    fn init_states(&self, text: &str) -> Vec<Column<'er>> {
+        // "\0" - gamma
+        "\0".chars()
+            .chain(text.chars())
+            .enumerate()
             .map(|x| {
-                if x == 0 {
-                    self.cfg
-                        .productions
-                        .iter()
-                        .filter(|x| x.left == self.cfg.start)
-                        .map(|x| State {
-                            rule: x,
-                            dot: 0,
-                            origin: 0,
-                        })
-                        .collect::<HashSet<_>>()
+                if x.0 == 0 {
+                    Column::from(
+                        self.cfg
+                            .productions
+                            .iter()
+                            .filter(|x| x.left == self.cfg.start)
+                            .map(|x| State {
+                                rule: x,
+                                dot: 0,
+                                origin: 0,
+                            })
+                            .collect(),
+                        x.1,
+                        x.0,
+                    )
                 } else {
-                    HashSet::new()
+                    Column::new(x.1, x.0)
                 }
             })
             .collect::<Vec<_>>()
     }
 
-    pub fn parse(&self, text: &str) -> Vec<HashSet<State>> {
-        let mut chart = self.init_states(text.chars().count());
-        for (idx, letter) in text.chars().chain("\0".chars()).enumerate() {
+    pub fn parse(&self, text: &str) -> Vec<Column> {
+        let mut chart = self.init_states(text);
+        let chart_len = chart.len();
+        for idx in 0..chart_len {
             let mut changed = true;
             while changed {
                 changed = false;
-                let links: Vec<_> = chart[idx].iter().cloned().collect();
+                let links: Vec<_> = chart[idx].states.iter().cloned().collect();
                 for state in &links {
                     if state.finished() {
                         self.completer(state, idx, &mut chart);
                     } else {
                         if state.nonterminal_here() {
                             self.predictor(state, idx, &mut chart[idx]);
-                        } else {
-                            self.scaner(state, letter, &mut chart[idx + 1]);
+                        } else if idx < chart_len - 1 {
+                            self.scaner(state, &mut chart[idx + 1]);
                         }
                     }
                 }
@@ -117,8 +153,8 @@ impl<'er> EarleyParser<'er> {
         }
         chart
     }
-    fn completer(&self, state: &State<'er>, idx: usize, chart: &mut Vec<HashSet<State<'er>>>) {
-        let links: Vec<_> = chart[state.origin].iter().cloned().collect();
+    fn completer(&self, state: &State<'er>, idx: usize, chart: &mut Vec<Column<'er>>) {
+        let links: Vec<_> = chart[state.origin].states.iter().cloned().collect();
         for r in links {
             if let Some(sym) = r.symbol() {
                 if sym.is_eq_nonterm(&state.rule.left) {
@@ -127,7 +163,7 @@ impl<'er> EarleyParser<'er> {
             }
         }
     }
-    fn predictor(&self, state: &State, origin: usize, states: &mut HashSet<State<'er>>) {
+    fn predictor(&self, state: &State, origin: usize, states: &mut Column<'er>) {
         self.cfg
             .productions
             .iter()
@@ -139,37 +175,78 @@ impl<'er> EarleyParser<'er> {
                 states.insert(State::new(r, origin));
             });
     }
-    fn scaner(&self, state: &State<'er>, letter: char, states: &mut HashSet<State<'er>>) {
+    fn scaner(&self, state: &State<'er>, states: &mut Column<'er>) {
         if let Some(sym) = state.symbol() {
-            if sym.is_eq_term(letter) {
+            if sym.is_eq_term(states.token) {
                 states.insert(state.shift());
             }
         }
     }
-    pub fn print(&self, text: &str, chart: Vec<HashSet<State<'er>>>) -> bool {
+    pub fn print(&self, chart: &Vec<Column<'er>>) -> bool {
         let mut ret = false;
-        let text_len = text.chars().count();
-        for (idx, state) in chart.iter().take(text_len + 1).enumerate() {
-            let accepts = state
+        let mut parsed = String::new();
+        println!("CFG.Start: {}", self.cfg.start);
+        for (idx, column) in chart.iter().enumerate() {
+            parsed.push(column.token);
+            let accepts = column
+                .states
                 .iter()
                 .any(|s| s.rule.left == self.cfg.start && s.finished() && s.origin == 0);
-            let (parsed, unparsed) = text.split_at(idx);
-            print!("({}) {}.{} ", idx, parsed, unparsed);
+            print!("({}) {} ", idx, parsed);
             if accepts {
-                if !ret {
-                    ret = true;
-                }
-                if idx != text_len {
+                if idx != chart.len() - 1 {
                     print!("PARTIAL ");
+                } else {
+                    ret = true
                 }
                 println!("ACCEPTS");
             } else {
                 println!("");
             }
-            for i in state {
+            for i in &column.states {
                 println!("\t{}", i);
             }
         }
         ret
+    }
+
+    pub fn derivation_path(&self, chart: &Vec<Column<'er>>) -> Option<Vec<&'er cfg::Production>> {
+        return None;
+        let mut chart_idx = chart.len();
+        if chart_idx == 0 {
+            eprintln!("Parsing failed");
+            return None;
+        }
+
+        let mut path: Vec<State> = Vec::new();
+        let completed = chart.iter().last().and_then(|last| {
+            last.states
+                .iter()
+                .filter(|x| x.finished())
+                .max_by(|a, b| a.dot.cmp(&b.dot))
+        });
+        if let Some(item) = completed {
+            path.push(item.clone());
+            let mut step = chart.len();
+            let mut item = item;
+            for sym in item.rule.right.iter().rev() {
+                if sym.is_nonterminal() {
+                    let completed = chart[chart_idx]
+                        .states
+                        .iter()
+                        .filter(|x| Some(&x.rule.left) == sym.as_nonterminal()  && x.finished())
+                        .max_by(|a, b| a.dot.cmp(&b.dot)).unwrap();
+
+                    if completed.rule.right.len() == 0 {
+                        path.push(completed.clone());
+                        continue
+                    }
+                } else {
+                    chart_idx -= 1;
+                }
+            }
+        }
+        eprintln!("Parsing failed");
+        None
     }
 }

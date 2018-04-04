@@ -159,7 +159,8 @@ fn main() {
         for line in buf.lines() {
             let text = line.unwrap();
             let states = earley.parse(&text);
-            earley.print(&text, states);
+            earley.print(&states);
+            earley.derivation_path(&states);
         }
 
     //
