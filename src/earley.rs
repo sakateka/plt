@@ -69,6 +69,7 @@ pub struct EarleyParser<'er> {
 pub struct Column<'er> {
     states: HashSet<State<'er>>,
     token: char,
+    #[allow(unused)]
     index: usize,
 }
 impl<'er> Column<'er> {
@@ -210,8 +211,8 @@ impl<'er> EarleyParser<'er> {
         ret
     }
 
+    /*
     pub fn derivation_path(&self, chart: &Vec<Column<'er>>) -> Option<Vec<&'er cfg::Production>> {
-        return None;
         let mut chart_idx = chart.len();
         if chart_idx == 0 {
             eprintln!("Parsing failed");
@@ -249,4 +250,5 @@ impl<'er> EarleyParser<'er> {
         eprintln!("Parsing failed");
         None
     }
+    */
 }

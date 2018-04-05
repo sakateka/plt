@@ -1,8 +1,8 @@
 use serde_yaml;
 
+use std::error::Error;
 use std::fmt;
 use std::fs::File;
-use std::error::Error;
 use std::io::{self, BufRead, BufReader};
 
 #[derive(Debug, PartialEq, Hash, Clone, Copy)]
@@ -105,12 +105,12 @@ impl fmt::Display for PDARule {
             if let Some(ch) = self.character {
                 format!("{}", ch)
             } else {
-                "".to_string()
+                String::new()
             },
             if let Some(ch) = self.pop_character {
                 format!("{}", ch)
             } else {
-                "".to_string()
+                String::new()
             },
             self.push_characters.iter().collect::<String>()
         )
@@ -213,7 +213,7 @@ impl DPDA {
         rulebook: DPDARulebook,
         accept_by_empty_stack: bool,
         traversed_path: Option<Vec<Option<PDARule>>>,
-    ) -> DPDA {
+    ) -> Self {
         DPDA {
             _current_cfg: cfg,
             accept_states: accept_states.iter().map(|x| PDAState::new(*x)).collect(),
@@ -271,7 +271,7 @@ impl DPDA {
         self._current_cfg = self.next_configuration(character)
     }
 
-    pub fn read_string(&mut self, string: String) -> String {
+    pub fn read_string(&mut self, string: &str) -> String {
         let mut eaten = String::new();
         for character in string.chars() {
             if self.is_stuck() {
@@ -291,8 +291,6 @@ pub struct DPDADesign {
     pub accept_states: Vec<u32>,
     pub rulebook: DPDARulebook,
     pub accept_by_empty_stack: bool,
-    #[serde(skip_deserializing)]
-    pub remember_traversed_path: bool,
 }
 
 pub struct DPDADesignResult {
@@ -311,7 +309,6 @@ impl DPDADesign {
             accept_states: accept,
             rulebook: rulebook,
             accept_by_empty_stack: false,
-            remember_traversed_path: false,
         }
     }
 
@@ -330,7 +327,7 @@ impl DPDADesign {
         }
     }
 
-    pub fn accepts(&self, string: String) -> DPDADesignResult {
+    pub fn accepts(&self, string: &str) -> DPDADesignResult {
         let mut dpda = self.to_dpda();
         let eaten_part = dpda.read_string(string);
         DPDADesignResult {
@@ -344,16 +341,12 @@ impl DPDADesign {
     pub fn to_dpda(&self) -> DPDA {
         let start_stack = vec![self.bottom_character];
         let start_cfg = PDAConfiguration::new(self.start_state, start_stack);
-        let mut path = None;
-        if self.remember_traversed_path {
-            path = Some(Vec::new());
-        }
         DPDA::new(
             start_cfg,
             self.accept_states.iter().cloned().collect(),
             self.rulebook.clone(),
             self.accept_by_empty_stack,
-            path,
+            Some(Vec::new()),
         )
     }
 }
@@ -418,7 +411,7 @@ mod tests {
         let mut dpda = DPDA::new(cfg, accept_states, rulebook, false, None);
 
         assert!(dpda.accepting(), "Initial state not accepting!");
-        dpda.read_string("(()".to_string());
+        dpda.read_string("(()");
         assert_eq!(dpda.accepting(), false, "Accept invalid string!");
 
         assert_eq!(
@@ -427,16 +420,16 @@ mod tests {
             "Unexpected state"
         );
 
-        dpda.read_string(")".to_string());
+        dpda.read_string(")");
         assert_eq!(dpda.accepting(), true, "Accept expected!");
 
-        dpda.read_string("(()(".to_string());
+        dpda.read_string("(()(");
         assert_eq!(dpda.accepting(), false, "Accept invalid string!");
         assert_eq!(
             dpda.current_cfg(),
             PDAConfiguration::new(2, vec!['$', 'b', 'b'])
         );
-        dpda.read_string("))()".to_string());
+        dpda.read_string("))()");
         assert_eq!(dpda.current_cfg(), PDAConfiguration::new(1, vec!['$']));
         assert_eq!(dpda.accepting(), true, "Accept expected!");
     }
@@ -453,10 +446,10 @@ mod tests {
     fn design() {
         let rulebook = get_rulebook();
         let dpda_design = DPDADesign::new(1, '$', vec![1], rulebook);
-        assert!(dpda_design.accepts("(((((((((())))))))))".to_string()).ok);
-        assert!(dpda_design.accepts("()(())((()))(()(()))".to_string()).ok);
-        assert!(!dpda_design.accepts("(()(()(()()(()()))()".to_string()).ok);
-        assert!(!dpda_design.accepts("())".to_string()).ok);
+        assert!(dpda_design.accepts("(((((((((())))))))))").ok);
+        assert!(dpda_design.accepts("()(())((()))(()(()))").ok);
+        assert!(!dpda_design.accepts("(()(()(()()(()()))()").ok);
+        assert!(!dpda_design.accepts("())").ok);
     }
 
     #[test]

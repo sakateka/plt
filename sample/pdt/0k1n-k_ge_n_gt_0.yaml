@@ -1,0 +1,12 @@
+start_state: 0
+bottom_character: Z
+accept_by_empty_stack: false
+accept_states: [0]
+rulebook:
+  rules:
+    - {state: 0, character: '0', translated: '1', pop_character:   Z, next_state: 2, push_characters: ['0', Z]}
+    - {state: 2, character: '0', translated: '1', pop_character: '0', next_state: 2, push_characters: ['0', '0']}
+    - {state: 2, character: '1', translated: '0', pop_character: '0', next_state: 1, push_characters: []}
+    - {state: 1, character: '1', translated: '0', pop_character: '0', next_state: 1, push_characters: []}
+    - {state: 1, character:   ~, translated:   ~, pop_character: '0', next_state: 1, push_characters: []}
+    - {state: 1, character:   ~, translated:   ~, pop_character:   Z, next_state: 0, push_characters: []}

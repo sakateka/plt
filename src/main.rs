@@ -13,6 +13,7 @@ mod dfa;
 mod earley;
 mod generator;
 mod pda;
+mod pdt;
 
 use cfg::{Symbol, CFG};
 use dfa::DFA;
@@ -20,6 +21,7 @@ use earley::EarleyParser;
 use generator::{GeneratedItem, GeneratedSet, Generator};
 use itertools::{join, Itertools};
 use pda::DPDADesign;
+use pdt::DPDTDesign;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
@@ -160,7 +162,7 @@ fn main() {
             let text = line.unwrap();
             let states = earley.parse(&text);
             earley.print(&states);
-            earley.derivation_path(&states);
+            //earley.derivation_path(&states);
         }
 
     //
@@ -183,13 +185,12 @@ fn main() {
         let input = get_input_stream(matches.value_of("INPUT"));
 
         let mut dpda_design = DPDADesign::load(dpda_spec).unwrap();
-        dpda_design.remember_traversed_path = matches.is_present("path");
 
         let dpda_design = dpda_design;
         let buf = BufReader::new(input);
         for line in buf.lines() {
             let text = line.unwrap();
-            let result = dpda_design.accepts(text.clone());
+            let result = dpda_design.accepts(&text);
             if let Some(path) = result.path {
                 println!(
                     "{} -> [{}]",
@@ -222,6 +223,37 @@ fn main() {
                     )
                 };
                 println!("{} -> ERR: {}, current {:?}", text, msg, result.cfg);
+            }
+        }
+
+    //
+    //// DPDT
+    //
+    } else if let Some(matches) = app.subcommand_matches("dpdt") {
+        let dpdt_spec = matches.value_of("DPDT").unwrap();
+
+        let input = get_input_stream(matches.value_of("INPUT"));
+
+        let mut dpdt_design = DPDTDesign::load(dpdt_spec).unwrap();
+
+        let dpdt_design = dpdt_design;
+        let buf = BufReader::new(input);
+        for line in buf.lines() {
+            let text = line.unwrap();
+            let result = dpdt_design.accepts(&text);
+            if result.ok {
+                println!("OK: {} -> {}", text, result.cfg.translated.iter().collect::<String>());
+            } else {
+                let msg = if text.len() == result.eaten_part.len() {
+                    "EOL but not accepted".to_string()
+                } else {
+                    format!(
+                        "Stuck after {} chars '{}'",
+                        result.eaten_part.len(),
+                        result.eaten_part
+                    )
+                };
+                println!("ERR: {}: {}, current {:?}", text, msg, result.cfg);
             }
         }
 

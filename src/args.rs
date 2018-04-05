@@ -160,11 +160,21 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Input stream (default: stdin)")
                         .index(2),
                 )
+        )
+        .subcommand(
+            SubCommand::with_name("dpdt")
+                .about("Convert the string via DPDT")
                 .arg(
-                    Arg::with_name("path")
-                        .long("path")
-                        .short("p")
-                        .help("Show derivation path"),
+                    Arg::with_name("DPDT")
+                        .help("Deterministic Push Down Translator definition")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("INPUT")
+                        .required(false)
+                        .help("Input stream (default: stdin)")
+                        .index(2),
                 )
         )
         .subcommand(
