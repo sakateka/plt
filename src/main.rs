@@ -191,25 +191,6 @@ fn main() {
         for line in buf.lines() {
             let text = line.unwrap();
             let result = dpda_design.accepts(&text);
-            if let Some(path) = result.path {
-                println!(
-                    "{} -> [{}]",
-                    join(
-                        path.iter()
-                            .cloned()
-                            .map(|x| {
-                                if let Some(rule) = x {
-                                    format!("{}", rule)
-                                } else {
-                                    String::new()
-                                }
-                            })
-                            .collect::<Vec<String>>(),
-                        " -> "
-                    ),
-                    result.cfg.state,
-                );
-            }
             if result.ok {
                 println!("{} -> OK", text);
             } else {

@@ -118,10 +118,10 @@ impl fmt::Display for PDTRule {
             f,
             "Rule (state {}):\n{}\n{}\n{}\n{}",
             self.state,
-            format!("\tcharacter: {:?}", self.character),
-            format!("\ttranslated: {:?}", self.translated),
-            format!("\tpop: {:?}", self.pop_character),
-            format!("\tpush: {:?}", self.push_characters),
+            format!("  character: {:?}", self.character),
+            format!("  translated: {:?}", self.translated),
+            format!("  pop: {:?}", self.pop_character),
+            format!("  push: {:?}", self.push_characters),
         )
     }
 }
@@ -260,7 +260,7 @@ impl DPDT {
 
         if let Some(rule) = self.next_rule(&current_cfg, character) {
             println!("\n{}", rule);
-            println!("\tConfiguration:\n\t\tcurrent: {}", current_cfg);
+            println!("  Configuration:\n    current: {}", current_cfg);
         }
         let next_cfg;
         if let Some(cfg) = self.rulebook
@@ -270,7 +270,7 @@ impl DPDT {
         } else {
             next_cfg = self._current_cfg.stuck();
         }
-        println!("\t\tnext: {}", next_cfg);
+        println!("    next: {}", next_cfg);
         next_cfg
     }
 

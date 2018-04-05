@@ -68,6 +68,11 @@ pub struct PDAConfiguration {
     pub state: PDAState,
     pub stack: Vec<char>,
 }
+impl fmt::Display for PDAConfiguration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "state: {}, stack: {:?}", self.state, self.stack,)
+    }
+}
 
 impl PDAConfiguration {
     pub fn new(state: u32, stack: Vec<char>) -> PDAConfiguration {
@@ -245,18 +250,20 @@ impl DPDA {
             current_cfg = self.rulebook.follow_free_moves(current_cfg)
         }
 
-        let save_path = self.traversed_path.is_some();
-        if save_path {
-            let rule = self.next_rule(&current_cfg, character);
-            self.traversed_path.as_mut().unwrap().push(rule);
+        if let Some(rule) = self.next_rule(&current_cfg, character) {
+            println!("\n{}", rule);
+            println!("  Configuration:\n    current: {}", current_cfg);
         }
+        let next_cfg;
         if let Some(cfg) = self.rulebook
             .next_configuration(&current_cfg, Some(character))
         {
-            cfg
+            next_cfg = cfg;
         } else {
-            self._current_cfg.stuck()
+            next_cfg = self._current_cfg.stuck();
         }
+        println!("    next: {}", next_cfg);
+        next_cfg
     }
 
     pub fn next_rule(&self, cfg: &PDAConfiguration, character: char) -> Option<PDARule> {
