@@ -67,7 +67,7 @@ impl<'de> ::serde::Deserialize<'de> for PDTState {
 pub struct PDTConfiguration {
     pub state: PDTState,
     pub stack: Vec<char>,
-    pub translated: Vec<char>,
+    pub translated: Vec<String>,
 }
 impl fmt::Display for PDTConfiguration {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -76,17 +76,20 @@ impl fmt::Display for PDTConfiguration {
             "state: {}, stack: {:?}, translated: {}",
             self.state,
             self.stack,
-            self.translated.iter().collect::<String>(),
+            self.translated.iter().fold(String::new(), |mut acc, x| {
+                acc.push_str(x);
+                acc
+            }),
         )
     }
 }
 
 impl PDTConfiguration {
-    pub fn new(state: u32, stack: Vec<char>, translated: Vec<char>) -> PDTConfiguration {
+    pub fn new(state: u32, stack: Vec<char>, translated: Vec<&str>) -> PDTConfiguration {
         PDTConfiguration {
             state: PDTState::State(state),
             stack: stack,
-            translated: translated,
+            translated: translated.iter().map(|x| x.to_string()).collect(),
         }
     }
     pub fn stuck(&self) -> PDTConfiguration {
@@ -106,7 +109,7 @@ impl PDTConfiguration {
 pub struct PDTRule {
     pub state: PDTState,
     pub character: Option<char>,
-    pub translated: Option<char>,
+    pub translated: Option<String>,
     pub next_state: PDTState,
     pub pop_character: Option<char>,
     pub push_characters: Vec<char>,
@@ -131,15 +134,16 @@ impl PDTRule {
     pub fn new(
         state: u32,
         character: Option<char>,
-        translated: Option<char>,
+        translated: Option<&str>,
         next_state: u32,
         pop_character: Option<char>,
         push_characters: Vec<char>,
     ) -> PDTRule {
+        let trans = translated.and_then(|x| Some(x.to_string()));
         PDTRule {
             state: PDTState::new(state),
             character: character,
-            translated: translated,
+            translated: trans,
             next_state: PDTState::new(next_state),
             pop_character: pop_character,
             push_characters: push_characters,
@@ -152,7 +156,7 @@ impl PDTRule {
 
     pub fn follow(&self, cfg: &PDTConfiguration) -> PDTConfiguration {
         let mut translated = cfg.translated.clone();
-        if let Some(ch) = self.translated {
+        if let Some(ch) = self.translated.clone() {
             translated.push(ch);
         }
         PDTConfiguration {
@@ -369,34 +373,34 @@ mod tests {
 
     fn get_rulebook() -> DPDTRulebook {
         DPDTRulebook::new(vec![
-            PDTRule::new(1, Some('('), Some('['), 2, Some('$'), vec!['b', '$']),
-            PDTRule::new(2, Some('('), Some('['), 2, Some('b'), vec!['b', 'b']),
-            PDTRule::new(2, Some(')'), Some(']'), 2, Some('b'), vec![]),
+            PDTRule::new(1, Some('('), Some("["), 2, Some('$'), vec!['b', '$']),
+            PDTRule::new(2, Some('('), Some("["), 2, Some('b'), vec!['b', 'b']),
+            PDTRule::new(2, Some(')'), Some("]"), 2, Some('b'), vec![]),
             PDTRule::new(2, None, None, 1, Some('$'), vec!['$']),
         ])
     }
 
     #[test]
     fn applies_to() {
-        let rule = PDTRule::new(1, Some('('), Some('['), 2, Some('$'), vec!['b', '$']);
+        let rule = PDTRule::new(1, Some('('), Some("["), 2, Some('$'), vec!['b', '$']);
         let cfg = PDTConfiguration::new(1, vec!['$'], Vec::new());
         assert_eq!(rule.applies_to(&cfg, Some('(')), true);
     }
 
     #[test]
     fn rule_follow() {
-        let rule = PDTRule::new(1, Some('('), Some('['), 2, Some('$'), vec!['b', '$']);
+        let rule = PDTRule::new(1, Some('('), Some("["), 2, Some('$'), vec!['b', '$']);
         let cfg = PDTConfiguration::new(1, vec!['$'], Vec::new());
         let new_cfg = rule.follow(&cfg);
         assert!(
             new_cfg.state == PDTState::new(2) && new_cfg.stack == vec!['$', 'b']
-                && new_cfg.translated == vec!['[']
+                && new_cfg.translated == vec!["["]
         );
     }
 
     #[test]
     fn next_stack() {
-        let rule = PDTRule::new(1, Some('('), Some('['), 2, Some('T'), vec!['a', 'b', 'T']);
+        let rule = PDTRule::new(1, Some('('), Some("["), 2, Some('T'), vec!['a', 'b', 'T']);
         let cfg = PDTConfiguration::new(1, vec!['$', 'T'], Vec::new());
 
         let stack = rule.next_stack(&cfg);
@@ -412,7 +416,7 @@ mod tests {
         cfg = rulebook.next_configuration(&cfg.unwrap(), Some('('));
         assert_eq!(
             cfg,
-            Some(PDTConfiguration::new(2, vec!['$', 'b'], vec!['[']))
+            Some(PDTConfiguration::new(2, vec!['$', 'b'], vec!["["]))
         );
         cfg = rulebook.next_configuration(&cfg.unwrap(), Some('('));
         assert_eq!(
@@ -420,7 +424,7 @@ mod tests {
             Some(PDTConfiguration::new(
                 2,
                 vec!['$', 'b', 'b'],
-                vec!['[', '[']
+                vec!["[", "["]
             ))
         );
         cfg = rulebook.next_configuration(&cfg.unwrap(), Some(')'));
@@ -429,7 +433,7 @@ mod tests {
             Some(PDTConfiguration::new(
                 2,
                 vec!['$', 'b'],
-                vec!['[', '[', ']']
+                vec!["[", "[", "]"]
             ))
         );
     }
@@ -448,7 +452,7 @@ mod tests {
 
         assert_eq!(
             dpdt.current_cfg(),
-            PDTConfiguration::new(2, vec!['$', 'b'], vec!['[', '[', ']']),
+            PDTConfiguration::new(2, vec!['$', 'b'], vec!["[", "[", "]"]),
             "Unexpected state"
         );
 
@@ -462,7 +466,7 @@ mod tests {
             PDTConfiguration::new(
                 2,
                 vec!['$', 'b', 'b'],
-                vec!['[', '[', ']', ']', '[', '[', ']', '[']
+                vec!["[", "[", "]", "]", "[", "[", "]", "["]
             )
         );
         dpdt.read_string("))()");
@@ -471,7 +475,7 @@ mod tests {
             PDTConfiguration::new(
                 1,
                 vec!['$'],
-                vec!['[', '[', ']', ']', '[', '[', ']', '[', ']', ']', '[', ']']
+                vec!["[", "[", "]", "]", "[", "[", "]", "[", "]", "]", "[", "]"]
             )
         );
         assert_eq!(dpdt.accepting(), true, "Accept expected!");

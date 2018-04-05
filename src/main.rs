@@ -223,7 +223,18 @@ fn main() {
             let text = line.unwrap();
             let result = dpdt_design.accepts(&text);
             if result.ok {
-                println!("OK: {} -> {}", text, result.cfg.translated.iter().collect::<String>());
+                println!(
+                    "OK: {} -> {}",
+                    text,
+                    result
+                        .cfg
+                        .translated
+                        .iter()
+                        .fold(String::new(), |mut acc, x| {
+                            acc.push_str(x);
+                            acc
+                        })
+                );
             } else {
                 let msg = if text.len() == result.eaten_part.len() {
                     "EOL but not accepted".to_string()
