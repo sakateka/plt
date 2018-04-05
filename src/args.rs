@@ -2,7 +2,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 
 pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
     App::new(name)
-        .version("0.1.0")
+        .version("5.0.2")
         .author("Sergey Kacheev <uo0@ya.ru>")
         .about("Theory of Programming Languages and Translation Methods")
         .subcommand(
