@@ -1,0 +1,8 @@
+start_state: 1
+bottom_character: $
+accept_by_empty_stack: false
+accept_states: [1]
+rulebook:
+  rules:
+    - {stte: 1, character: '(', translated: '[', next_state: 2, pop_character: $, push_characters: [b, $]}
+    - {state: 2}
