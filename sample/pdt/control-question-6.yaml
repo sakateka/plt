@@ -1,0 +1,11 @@
+start_state: 0
+bottom_character: E
+accept_by_empty_stack: true
+accept_states: [0]
+rulebook:
+  rules:
+    - {state: 0, character: '*', pop_character:   E, next_state: 0, push_characters: [E, E, '*'], translated:   ~}
+    - {state: 0, character:   ~, pop_character: '+', next_state: 0, push_characters: [],          translated: '+'}
+    - {state: 0, character:   a, pop_character:   E, next_state: 0, push_characters: [],          translated:   a}
+    - {state: 0, character: '+', pop_character:   E, next_state: 0, push_characters: [E, E, '+'], translated:   ~}
+    - {state: 0, character:   ~, pop_character: '*', next_state: 0, push_characters: [],          translated: '*'}
