@@ -9,6 +9,7 @@ extern crate serde_yaml;
 
 mod args;
 mod cfg;
+mod cyk;
 mod dfa;
 mod earley;
 mod generator;
@@ -142,6 +143,23 @@ fn main() {
             verbose("Chomsky Normal Form", &cfg);
         }
         output_stream.write_all(cfg.to_string().as_bytes()).unwrap();
+
+    //
+    //// CYK
+    //
+    } else if let Some(matches) = app.subcommand_matches("cyk") {
+        let grammar = matches.value_of("CFG").unwrap();
+        let cfg = CFG::parse(grammar).unwrap();
+        let input = BufReader::new(get_input_stream(matches.value_of("INPUT")));
+        for line in input.lines() {
+            let text = line.unwrap();
+            print!("{}", text);
+            if cyk::check(&text, &cfg) {
+                println!("- ACCEPT");
+            } else {
+                println!("- REFUSE");
+            }
+        }
 
     //
     //// EarleyParser
@@ -347,5 +365,7 @@ fn main() {
                     .unwrap();
             }
         }
+    } else {
+        println!("{}", app.usage());
     }
 }

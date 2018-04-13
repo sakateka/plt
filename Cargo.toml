@@ -1,6 +1,6 @@
 [package]
 name = "plt"
-version = "5.0.2"
+version = "5.4.0"
 authors = ["Sergey Kacheev <uo0@ya.ru>"]
 
 [dependencies]

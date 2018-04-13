@@ -2,7 +2,7 @@ use clap::{App, Arg, ArgMatches, SubCommand};
 
 pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
     App::new(name)
-        .version("5.0.2")
+        .version("5.4.0")
         .author("Sergey Kacheev <uo0@ya.ru>")
         .about("Theory of Programming Languages and Translation Methods")
         .subcommand(
@@ -115,6 +115,22 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .long("chomsky")
                         .short("c")
                         .help("Use Chomsky Normal Form"),
+                )
+        )
+        .subcommand(
+            SubCommand::with_name("cyk")
+                .about("Check the string via CYK recognizer")
+                .arg(
+                    Arg::with_name("CFG")
+                        .help("Path to CFG")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    Arg::with_name("INPUT")
+                        .required(false)
+                        .help("Input stream (default: stdin)")
+                        .index(2),
                 )
         )
         .subcommand(
