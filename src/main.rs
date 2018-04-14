@@ -17,6 +17,7 @@ mod pda;
 mod pdt;
 
 use cfg::{Symbol, CFG};
+use cyk::CYKParser;
 use dfa::DFA;
 use earley::EarleyParser;
 use generator::{GeneratedItem, GeneratedSet, Generator};
@@ -150,11 +151,14 @@ fn main() {
     } else if let Some(matches) = app.subcommand_matches("cyk") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::parse(grammar).unwrap();
+        let cyk = CYKParser::new(&cfg);
+
         let input = BufReader::new(get_input_stream(matches.value_of("INPUT")));
+
         for line in input.lines() {
             let text = line.unwrap();
             print!("{}", text);
-            if cyk::check(&text, &cfg) {
+            if cyk.accepts(&text) {
                 println!("- ACCEPT");
             } else {
                 println!("- REFUSE");
