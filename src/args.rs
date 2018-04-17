@@ -132,6 +132,12 @@ pub fn build_app<'a>(name: &str) -> ArgMatches<'a> {
                         .help("Input stream (default: stdin)")
                         .index(2),
                 )
+                .arg(
+                    Arg::with_name("parse")
+                        .long("parse")
+                        .short("p")
+                        .help("Build parse tree"),
+                )
         )
         .subcommand(
             SubCommand::with_name("dfa")

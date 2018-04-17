@@ -149,6 +149,8 @@ fn main() {
     //// CYK
     //
     } else if let Some(matches) = app.subcommand_matches("cyk") {
+        let show_path = matches.is_present("parse");
+
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::parse(grammar).unwrap();
         let cyk = CYKParser::new(&cfg);
@@ -157,11 +159,27 @@ fn main() {
 
         for line in input.lines() {
             let text = line.unwrap();
-            print!("{}", text);
-            if cyk.accepts(&text) {
-                println!("- ACCEPT");
+            print!("'{}'", text);
+            if show_path {
+                if let Some(path) = cyk.parse(&text) {
+                    println!("- ACCEPT");
+                    println!(
+                        "{}",
+                        join(
+                            path.iter()
+                                .map(|x| format!("{}->{}", x.left, join(&x.right, ""))),
+                            " => "
+                        )
+                    );
+                } else {
+                    println!("- REFUSE");
+                }
             } else {
-                println!("- REFUSE");
+                if cyk.accepts(&text) {
+                    println!("- ACCEPT");
+                } else {
+                    println!("- REFUSE");
+                }
             }
         }
 
