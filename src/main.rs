@@ -163,14 +163,9 @@ fn main() {
             if show_path {
                 if let Some(path) = cyk.parse(&text) {
                     println!("- ACCEPT");
-                    println!(
-                        "{}",
-                        join(
-                            path.iter()
-                                .map(|x| format!("{}->{}", x.left, join(&x.right, ""))),
-                            " => "
-                        )
-                    );
+                    for item in path {
+                        println!("{:4} -> {}", item.left.to_string(), join(&item.right, ""));
+                    }
                 } else {
                     println!("- REFUSE");
                 }
