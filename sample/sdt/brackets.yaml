@@ -1,0 +1,9 @@
+rules:
+  - {left: 'S', right: ['(', 'S', ')'], translated: ['S']}
+  - {left: 'S', right: ['S', '+', 'S'], translated: ['S', '+', 'S']}
+  - {left: 'S', right: ['P'], translated: ['P']}
+  - {left: 'P', right: ['(', 'P', ')'], translated: ['P']}
+  - {left: 'P', right: ['A', '*', 'A'], translated: ['A', '*', 'A']}
+  - {left: 'P', right: ['a'], translated: ['a']}
+  - {left: 'A', right: ['(', 'S', '+', 'S', ')'], translated: ['(', 'S', '+', 'S', ')']}
+  - {left: 'A', right: ['P'], translated: ['P']}

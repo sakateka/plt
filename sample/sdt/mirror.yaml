@@ -1,0 +1,4 @@
+rules:
+  - {left: 'S', right: ['0', 'S'], translated: ['S', '0']}
+  - {left: 'S', right: ['1', 'S'], translated: ['S', '1']}
+  - {left: 'S', right: [], translated: []}
