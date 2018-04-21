@@ -207,11 +207,11 @@ impl CFG {
         }
     }
 
-    pub fn parse(input_path: &str) -> io::Result<CFG> {
+    pub fn load(input_path: &str) -> io::Result<CFG> {
         let file = BufReader::new(File::open(input_path)?);
-        CFG::parse_from_reader(file)
+        CFG::load_from_reader(file)
     }
-    pub fn parse_from_reader<R: ?Sized + BufRead>(r: R) -> io::Result<CFG>
+    pub fn load_from_reader<R: ?Sized + BufRead>(r: R) -> io::Result<CFG>
     where
         R: ::std::marker::Sized,
     {
@@ -680,7 +680,7 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
-    fn parse_cfg() {
+    fn load_cfg() {
         let productions = vec![
             Production {
                 left: Nonterminal {
@@ -722,28 +722,28 @@ mod tests {
             productions: productions.into_iter().collect(),
         };
         let test_definition = "<S2> -> <S1><Some>a | <s>Sa\n";
-        let cfg = CFG::parse_from_reader(Cursor::new(test_definition)).unwrap();
+        let cfg = CFG::load_from_reader(Cursor::new(test_definition)).unwrap();
         assert_eq!(cfg.start, expected.start);
         assert_eq!(cfg.productions, expected.productions);
         assert_eq!(format!("{}", cfg), test_definition);
         let text = Cursor::new("<a> -> ||||");
-        assert!(CFG::parse_from_reader(text).is_ok());
+        assert!(CFG::load_from_reader(text).is_ok());
     }
 
     #[test]
-    fn parse_mailformed_cfg() {
+    fn load_mailformed_cfg() {
         let text = Cursor::new("S -> <");
-        assert!(CFG::parse_from_reader(text).is_err(), "Eat unexpected '<'");
+        assert!(CFG::load_from_reader(text).is_err(), "Eat unexpected '<'");
         let text = Cursor::new("S -> <<a>");
-        assert!(CFG::parse_from_reader(text).is_err(), "Eat unexpected '<'");
+        assert!(CFG::load_from_reader(text).is_err(), "Eat unexpected '<'");
         let text = Cursor::new("S -> >");
-        assert!(CFG::parse_from_reader(text).is_err(), "Eat unexpected '>'");
+        assert!(CFG::load_from_reader(text).is_err(), "Eat unexpected '>'");
         let text = Cursor::new("S -> <a>>");
-        assert!(CFG::parse_from_reader(text).is_err(), "Eat unexpected '>'");
+        assert!(CFG::load_from_reader(text).is_err(), "Eat unexpected '>'");
         let text = Cursor::new(" -> <a>");
-        assert!(CFG::parse_from_reader(text).is_err(), "Missing left Symbol");
+        assert!(CFG::load_from_reader(text).is_err(), "Missing left Symbol");
         let text = Cursor::new("a -> ");
-        assert!(CFG::parse_from_reader(text).is_err(), "Terminal at LHS");
+        assert!(CFG::load_from_reader(text).is_err(), "Terminal at LHS");
     }
 
     #[test]
@@ -766,7 +766,7 @@ mod tests {
                 "\n"
             )
         );
-        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
+        let cfg = CFG::load_from_reader(Cursor::new(test_rules)).unwrap();
         assert_eq!(format!("{}", cfg.remove_epsilon_rules()), expected);
     }
 
@@ -791,7 +791,7 @@ mod tests {
             )
         );
 
-        let cfg = CFG::parse_from_reader(Cursor::new(test_rules))
+        let cfg = CFG::load_from_reader(Cursor::new(test_rules))
             .unwrap()
             .remove_epsilon_rules();
         assert_eq!(format!("{}", cfg.remove_unit_rules()), expected);
@@ -814,7 +814,7 @@ mod tests {
                 "\n"
             )
         );
-        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
+        let cfg = CFG::load_from_reader(Cursor::new(test_rules)).unwrap();
         assert_eq!(format!("{}", cfg.remove_unit_rules()), expected);
     }
 
@@ -844,7 +844,7 @@ mod tests {
                 "\n"
             )
         );
-        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
+        let cfg = CFG::load_from_reader(Cursor::new(test_rules)).unwrap();
         assert_eq!(format!("{}", cfg.remove_useless_rules()), expected);
     }
 
@@ -872,7 +872,7 @@ mod tests {
                 "\n"
             )
         );
-        let cfg = CFG::parse_from_reader(Cursor::new(test_rules))
+        let cfg = CFG::load_from_reader(Cursor::new(test_rules))
             .unwrap()
             .remove_useless_rules();
         assert_eq!(format!("{}", cfg.remove_unreachable_rules()), expected);
@@ -893,7 +893,7 @@ mod tests {
                 "\n"
             )
         );
-        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
+        let cfg = CFG::load_from_reader(Cursor::new(test_rules)).unwrap();
         assert_eq!(format!("{}", cfg.simplify()), expected);
     }
 
@@ -916,7 +916,7 @@ mod tests {
                 "\n"
             )
         );
-        let cfg = CFG::parse_from_reader(Cursor::new(test_rules)).unwrap();
+        let cfg = CFG::load_from_reader(Cursor::new(test_rules)).unwrap();
         assert_eq!(format!("{}", cfg.chomsky()), expected);
     }
 }

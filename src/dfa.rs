@@ -158,12 +158,12 @@ impl DFA {
         })
     }
 
-    pub fn parse(input_path: &str, debug: bool) -> io::Result<DFA> {
+    pub fn load(input_path: &str, debug: bool) -> io::Result<DFA> {
         let file = BufReader::new(File::open(input_path)?);
-        DFA::parse_from_reader(file, debug)
+        DFA::load_from_reader(file, debug)
     }
 
-    pub fn parse_from_reader<R: ?Sized + BufRead>(r: R, debug: bool) -> io::Result<DFA>
+    pub fn load_from_reader<R: ?Sized + BufRead>(r: R, debug: bool) -> io::Result<DFA>
     where
         R: ::std::marker::Sized,
     {

@@ -15,6 +15,7 @@ mod earley;
 mod generator;
 mod pda;
 mod pdt;
+mod sdt;
 
 use cfg::{Symbol, CFG};
 use cyk::CYKParser;
@@ -58,7 +59,7 @@ fn main() {
     //
     if let Some(matches) = app.subcommand_matches("gen") {
         let grammar = matches.value_of("CFG").unwrap();
-        let cfg = CFG::parse(grammar)
+        let cfg = CFG::load(grammar)
             .and_then(|x| {
                 Ok(if matches.is_present("chomsky") {
                     x.chomsky()
@@ -98,7 +99,7 @@ fn main() {
     //
     } else if let Some(matches) = app.subcommand_matches("simplify") {
         let grammar = matches.value_of("CFG").unwrap();
-        let mut cfg = CFG::parse(grammar).unwrap();
+        let mut cfg = CFG::load(grammar).unwrap();
 
         let mut output_stream = get_output_stream(matches.value_of("OUT"));
 
@@ -110,7 +111,7 @@ fn main() {
                 eprintln!("{}\n{:?}\n", title, cfg);
             }
         };
-        verbose("Parsed CFG", &cfg);
+        verbose("Load CFG", &cfg);
         let remove_epsilon_and_unit = |mut cfg: CFG| -> CFG {
             cfg = cfg.remove_epsilon_rules();
             verbose("Remove epsilon", &cfg);
@@ -152,7 +153,7 @@ fn main() {
         let show_path = matches.is_present("parse");
 
         let grammar = matches.value_of("CFG").unwrap();
-        let cfg = CFG::parse(grammar).unwrap();
+        let cfg = CFG::load(grammar).unwrap();
         let cyk = CYKParser::new(&cfg);
 
         let input = BufReader::new(get_input_stream(matches.value_of("INPUT")));
@@ -183,7 +184,7 @@ fn main() {
     //
     } else if let Some(matches) = app.subcommand_matches("earley") {
         let grammar = matches.value_of("CFG").unwrap();
-        let mut cfg = CFG::parse(grammar).unwrap();
+        let mut cfg = CFG::load(grammar).unwrap();
         if matches.is_present("simplify") {
             cfg = cfg.simplify()
         }
@@ -207,7 +208,7 @@ fn main() {
         let dfa_table = matches.value_of("DFA").unwrap();
         let debug = matches.is_present("debug");
         let show_path = matches.is_present("path");
-        let dfa = DFA::parse(dfa_table, debug).unwrap();
+        let dfa = DFA::load(dfa_table, debug).unwrap();
         let input = get_input_stream(matches.value_of("INPUT"));
         dfa.check(input, show_path).unwrap();
 
@@ -289,7 +290,7 @@ fn main() {
     //
     } else if let Some(matches) = app.subcommand_matches("coursework") {
         let grammar = matches.value_of("CFG").unwrap();
-        let cfg = CFG::parse(grammar).expect("Parse CFG");
+        let cfg = CFG::load(grammar).expect("Load CFG");
         let mut min: u32 = 0;
         if matches.is_present("len-min") {
             min = value_t_or_exit!(matches, "len-min", u32);
