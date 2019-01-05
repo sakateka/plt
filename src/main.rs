@@ -27,7 +27,7 @@ use pda::DPDADesign;
 use pdt::DPDTDesign;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Cursor, Read, Write};
 use std::path::Path;
 use std::process;
 
@@ -52,12 +52,15 @@ pub fn get_input_stream(x: Option<&str>) -> Box<Read> {
 }
 
 fn main() {
-    let app = args::build_app("plt");
+    let mut app = args::build_app("plt");
+    let mut help = Cursor::new(Vec::new());
+    app.write_long_help(&mut help);
+    let arg_matches = app.get_matches();
 
     //
     //// Gen
     //
-    if let Some(matches) = app.subcommand_matches("gen") {
+    if let Some(matches) = arg_matches.subcommand_matches("gen") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::load(grammar)
             .and_then(|x| {
@@ -66,8 +69,7 @@ fn main() {
                 } else {
                     x.simplify()
                 })
-            })
-            .unwrap();
+            }).unwrap();
         let mut min: u32 = 0;
         if matches.is_present("len-min") {
             min = value_t_or_exit!(matches, "len-min", u32);
@@ -90,14 +92,13 @@ fn main() {
                 .write_fmt(format_args!(
                     "{}",
                     GeneratedSet(gen.collect::<HashSet<Vec<Symbol>>>())
-                ))
-                .unwrap();
+                )).unwrap();
         }
 
     //
     //// Simplify
     //
-    } else if let Some(matches) = app.subcommand_matches("simplify") {
+    } else if let Some(matches) = arg_matches.subcommand_matches("simplify") {
         let grammar = matches.value_of("CFG").unwrap();
         let mut cfg = CFG::load(grammar).unwrap();
 
@@ -149,7 +150,7 @@ fn main() {
     //
     //// CYK
     //
-    } else if let Some(matches) = app.subcommand_matches("cyk") {
+    } else if let Some(matches) = arg_matches.subcommand_matches("cyk") {
         let show_path = matches.is_present("parse");
 
         let grammar = matches.value_of("CFG").unwrap();
@@ -182,7 +183,7 @@ fn main() {
     //
     //// EarleyParser
     //
-    } else if let Some(matches) = app.subcommand_matches("earley") {
+    } else if let Some(matches) = arg_matches.subcommand_matches("earley") {
         let grammar = matches.value_of("CFG").unwrap();
         let mut cfg = CFG::load(grammar).unwrap();
         if matches.is_present("simplify") {
@@ -204,7 +205,7 @@ fn main() {
     //
     //// DFA
     //
-    } else if let Some(matches) = app.subcommand_matches("dfa") {
+    } else if let Some(matches) = arg_matches.subcommand_matches("dfa") {
         let dfa_table = matches.value_of("DFA").unwrap();
         let debug = matches.is_present("debug");
         let show_path = matches.is_present("path");
@@ -215,7 +216,7 @@ fn main() {
     //
     //// DPDA
     //
-    } else if let Some(matches) = app.subcommand_matches("dpda") {
+    } else if let Some(matches) = arg_matches.subcommand_matches("dpda") {
         let dpda_spec = matches.value_of("DPDA").unwrap();
 
         let input = get_input_stream(matches.value_of("INPUT"));
@@ -246,7 +247,7 @@ fn main() {
     //
     //// DPDT
     //
-    } else if let Some(matches) = app.subcommand_matches("dpdt") {
+    } else if let Some(matches) = arg_matches.subcommand_matches("dpdt") {
         let dpdt_spec = matches.value_of("DPDT").unwrap();
 
         let input = get_input_stream(matches.value_of("INPUT"));
@@ -288,7 +289,7 @@ fn main() {
     //
     //// Course Work
     //
-    } else if let Some(matches) = app.subcommand_matches("coursework") {
+    } else if let Some(matches) = arg_matches.subcommand_matches("coursework") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::load(grammar).expect("Load CFG");
         let mut min: u32 = 0;
@@ -313,8 +314,7 @@ fn main() {
                 join(chomsky_cfg.get_variables().iter().collect::<Vec<_>>(), ","),
                 chomsky_cfg.start,
                 chomsky_cfg,
-            ))
-            .unwrap();
+            )).unwrap();
 
         let chomsky_gen = Generator::new(chomsky_cfg, min, max, true);
         let gen = Generator::new(cfg, min, max, true);
@@ -367,8 +367,7 @@ fn main() {
                     "CNF",
                     num_width = num_width,
                     width = max as usize,
-                ))
-                .unwrap();
+                )).unwrap();
             for (idx, key) in result.keys().sorted().into_iter().enumerate() {
                 let v = result.get(key).unwrap();
                 output_stream
@@ -379,11 +378,10 @@ fn main() {
                         v.1,
                         num_width = num_width,
                         width = max as usize,
-                    ))
-                    .unwrap();
+                    )).unwrap();
             }
         }
     } else {
-        println!("{}", app.usage());
+        print!("{}", String::from_utf8(help.into_inner()).unwrap());
     }
 }
