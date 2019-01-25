@@ -1,16 +1,14 @@
 use itertools::join;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 
-#[derive(Debug, Hash, PartialEq, Clone, PartialOrd, Ord)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Nonterminal {
     pub name: String,
     pub sub_index: u32,
 }
-
-impl Eq for Nonterminal {}
 
 impl Nonterminal {
     pub fn new(name: String, sub_index: u32) -> Nonterminal {
@@ -37,10 +35,7 @@ impl Nonterminal {
         Nonterminal::new(name, sub_index)
     }
     pub fn inc_sub_index(&self) -> Nonterminal {
-        Nonterminal {
-            name: self.name.to_owned(),
-            sub_index: self.sub_index + 1,
-        }
+        Nonterminal::new(self.name.to_owned(), self.sub_index + 1)
     }
 }
 impl fmt::Display for Nonterminal {
@@ -58,11 +53,10 @@ impl fmt::Display for Nonterminal {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Terminal {
     pub symbol: char,
 }
-impl Eq for Terminal {}
 
 impl Terminal {
     pub fn new(from: char) -> Terminal {
@@ -79,12 +73,11 @@ impl fmt::Display for Terminal {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum Symbol {
     N(Nonterminal),
     T(Terminal),
 }
-impl Eq for Symbol {}
 
 impl Symbol {
     pub fn new(c: String) -> Symbol {
@@ -139,13 +132,12 @@ impl fmt::Display for Symbol {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Production {
     pub left: Nonterminal,
     pub right: Vec<Symbol>,
 }
 
-impl Eq for Production {}
 impl AsRef<Production> for Production {
     fn as_ref(&self) -> &Production {
         &self
@@ -161,14 +153,12 @@ impl Production {
 #[derive(Debug, PartialEq)]
 pub struct CFG {
     pub start: Nonterminal,
-    pub productions: HashSet<Production>,
+    pub productions: BTreeSet<Production>,
 }
 impl fmt::Display for CFG {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut rules: HashMap<Nonterminal, Vec<String>> = HashMap::new();
-        let mut prods: Vec<&Production> = self.productions.iter().collect();
-        prods.sort_by(|a, b| a.left.cmp(&b.left));
-        for rule in &prods {
+        for rule in self.productions.iter() {
             let mut chars = match rules.get(&rule.left) {
                 Some(s) => s.clone(),
                 None => Vec::new(),
@@ -187,7 +177,7 @@ impl fmt::Display for CFG {
                 return write!(f, "{} -> \n", self.start);
             }
         }
-        for rule in &prods {
+        for rule in self.productions.iter() {
             if let Some(mut val) = rules.remove(&rule.left) {
                 val.sort();
                 if let Err(e) = write!(f, "{} -> {}\n", rule.left, join(val, " | ")) {
@@ -200,7 +190,7 @@ impl fmt::Display for CFG {
 }
 
 impl CFG {
-    pub fn new(start: Nonterminal, prods: HashSet<Production>) -> CFG {
+    pub fn new(start: Nonterminal, prods: BTreeSet<Production>) -> CFG {
         CFG {
             start: start,
             productions: prods,
@@ -216,7 +206,7 @@ impl CFG {
         R: ::std::marker::Sized,
     {
         let mut start: Option<Nonterminal> = None;
-        let mut productions = HashSet::new();
+        let mut productions = BTreeSet::new();
         for line in r.lines() {
             let mut text = line?;
             let rule = text.trim();
@@ -309,15 +299,14 @@ impl CFG {
                     .map(|x| match x {
                         Symbol::T(n) => n,
                         _ => unreachable!(),
-                    })
-                    .collect::<HashSet<Terminal>>(),
+                    }).collect::<HashSet<Terminal>>(),
             );
         }
         term
     }
 
-    pub fn get_variables(&self) -> HashSet<Nonterminal> {
-        let mut vars = HashSet::new();
+    pub fn get_variables(&self) -> BTreeSet<Nonterminal> {
+        let mut vars = BTreeSet::new();
         for rule in &self.productions {
             vars.extend(
                 rule.right
@@ -327,8 +316,7 @@ impl CFG {
                     .map(|x| match x {
                         Symbol::N(n) => n,
                         _ => unreachable!(),
-                    })
-                    .collect::<HashSet<Nonterminal>>(),
+                    }).collect::<HashSet<Nonterminal>>(),
             );
             vars.insert(rule.left.clone());
         }
@@ -369,20 +357,21 @@ impl CFG {
     pub fn remove_epsilon_rules(&self) -> CFG {
         let nullable = self.get_nullable();
 
-        let mut new_rules: HashSet<Production> = HashSet::new();
+        let mut new_rules = BTreeSet::new();
         self.productions.iter().for_each(|rule| {
             if !rule.right.is_empty() {
                 new_rules.insert(rule.clone());
             }
         });
         for rule in &self.productions {
-            if rule.right
+            if rule
+                .right
                 .iter()
                 .any(|x| x.is_nonterminal() && nullable.contains(x.as_nonterminal().unwrap()))
             {
                 new_rules.insert(Production::new(rule.left.clone(), rule.right.clone()));
                 let mut source = new_rules.clone();
-                let mut source2 = HashSet::new();
+                let mut source2 = BTreeSet::new();
                 let mut changed = true;
                 while changed {
                     changed = false;
@@ -428,7 +417,8 @@ impl CFG {
     }
 
     pub fn remove_unit_rules(&self) -> CFG {
-        let mut unit_sets = self.get_variables()
+        let mut unit_sets = self
+            .get_variables()
             .iter()
             .cloned()
             .map(|x| (x.clone(), vec![x].into_iter().collect()))
@@ -453,11 +443,12 @@ impl CFG {
             }
             set.remove(&nonterm);
         }
-        let rules = self.productions
+        let rules = self
+            .productions
             .iter()
             .filter(|x| !(x.right.len() == 1 && x.right[0].is_nonterminal()))
             .cloned()
-            .collect::<HashSet<Production>>();
+            .collect::<BTreeSet<Production>>();
         let mut new_rules = rules.clone();
         for (k, v) in &unit_sets {
             for rule in &rules {
@@ -474,20 +465,20 @@ impl CFG {
     }
 
     pub fn remove_useless_rules(&self) -> CFG {
-        let mut usefull_nonterminals: HashSet<Nonterminal> = HashSet::new();
+        let mut usefull_nonterminals = BTreeSet::new();
         let mut changed = true;
         while changed {
             changed = false;
             for rule in &self.productions {
-                let right_nonterm_set: HashSet<Nonterminal> = rule.right
+                let right_nonterm_set: BTreeSet<Nonterminal> = rule
+                    .right
                     .iter()
                     .cloned()
                     .filter(|x| x.is_nonterminal())
                     .map(|x| match x {
                         Symbol::N(n) => n,
                         _ => unreachable!(),
-                    })
-                    .collect();
+                    }).collect();
                 if right_nonterm_set.is_empty()
                     || right_nonterm_set.is_subset(&usefull_nonterminals)
                 {
@@ -498,17 +489,17 @@ impl CFG {
                 }
             }
         }
-        let mut productions = HashSet::new();
+        let mut productions = BTreeSet::new();
         for rule in &self.productions {
-            let right_nonterm_set: HashSet<Nonterminal> = rule.right
+            let right_nonterm_set: BTreeSet<Nonterminal> = rule
+                .right
                 .iter()
                 .cloned()
                 .filter(|x| x.is_nonterminal())
                 .map(|x| match x {
                     Symbol::N(n) => n,
                     _ => unreachable!(),
-                })
-                .collect();
+                }).collect();
             let here = usefull_nonterminals.contains(&rule.left);
             if here && right_nonterm_set.is_subset(&usefull_nonterminals) {
                 productions.insert(rule.clone());
@@ -533,7 +524,7 @@ impl CFG {
                 }
             }
         }
-        let mut productions = HashSet::new();
+        let mut productions = BTreeSet::new();
         for rule in &self.productions {
             let mut right_set: HashSet<Symbol> = rule.right.iter().cloned().collect();
             right_set.insert(Symbol::N(rule.left.clone()));
@@ -588,12 +579,14 @@ impl CFG {
             ))
         } else if self != &self.remove_start_from_rhs().remove_epsilon_rules() {
             Some(format!("Epsilon rules are not excluded from grammar"))
-        } else if self != &self.remove_start_from_rhs()
+        } else if self != &self
+            .remove_start_from_rhs()
             .remove_epsilon_rules()
             .remove_unit_rules()
         {
             Some(format!("There are Unit rules in the grammar"))
-        } else if self != &self.remove_start_from_rhs()
+        } else if self != &self
+            .remove_start_from_rhs()
             .remove_epsilon_rules()
             .remove_unit_rules()
             .remove_useless_rules()
@@ -601,7 +594,8 @@ impl CFG {
             Some(format!(
                 "There are non-generating characters in the grammar"
             ))
-        } else if self != &self.remove_start_from_rhs()
+        } else if self != &self
+            .remove_start_from_rhs()
             .remove_epsilon_rules()
             .remove_unit_rules()
             .remove_useless_rules()
@@ -614,14 +608,15 @@ impl CFG {
     }
 
     pub fn chomsky(&self) -> CFG {
-        let cfg = self.remove_start_from_rhs()
+        let cfg = self
+            .remove_start_from_rhs()
             .remove_epsilon_rules()
             .remove_unit_rules()
             .remove_useless_rules()
             .remove_unreachable_rules();
 
         // Eliminate all rules having more than two symbols on the right-hand side.
-        let mut new_productions = HashSet::new();
+        let mut new_productions = BTreeSet::new();
         for rule in cfg.productions {
             if rule.right.len() <= 2 {
                 new_productions.insert(rule.clone());
@@ -652,7 +647,7 @@ impl CFG {
 
         // Eliminate all rules of the form A →  u₁u₂,
         // where u₁ and u₂ are not both variables.
-        let mut productions = HashSet::new();
+        let mut productions = BTreeSet::new();
         for rule in new_productions {
             if rule.right.iter().all(|x| x.is_nonterminal()) {
                 productions.insert(rule);
@@ -672,6 +667,16 @@ impl CFG {
         }
         CFG::new(cfg.start, productions)
     }
+
+    pub fn greibach(&self) -> CFG {
+        let cfg = self.chomsky();
+        let cfg = cfg.eliminate_left_recursion();
+        CFG::new(self.start.clone(), self.productions.clone())
+    }
+
+    pub fn eliminate_left_recursion(&self) -> CFG {
+        CFG::new(self.start.clone(), self.productions.clone())
+    }
 }
 
 #[cfg(test)]
@@ -683,36 +688,18 @@ mod tests {
     fn load_cfg() {
         let productions = vec![
             Production {
-                left: Nonterminal {
-                    name: "S".to_string(),
-                    sub_index: 2,
-                },
+                left: Nonterminal::new("S".to_string(), 2),
                 right: vec![
-                    Symbol::N(Nonterminal {
-                        name: "S".to_string(),
-                        sub_index: 1,
-                    }),
-                    Symbol::N(Nonterminal {
-                        name: "Some".to_string(),
-                        sub_index: 0,
-                    }),
+                    Symbol::N(Nonterminal::new("S".to_string(), 1)),
+                    Symbol::N(Nonterminal::new("Some".to_string(), 0)),
                     Symbol::T(Terminal { symbol: 'a' }),
                 ],
             },
             Production {
-                left: Nonterminal {
-                    name: "S".to_string(),
-                    sub_index: 2,
-                },
+                left: Nonterminal::new("S".to_string(), 2),
                 right: vec![
-                    Symbol::N(Nonterminal {
-                        name: "s".to_string(),
-                        sub_index: 0,
-                    }),
-                    Symbol::N(Nonterminal {
-                        name: "S".to_string(),
-                        sub_index: 0,
-                    }),
+                    Symbol::N(Nonterminal::new("s".to_string(), 0)),
+                    Symbol::N(Nonterminal::new("S".to_string(), 0)),
                     Symbol::T(Terminal { symbol: 'a' }),
                 ],
             },

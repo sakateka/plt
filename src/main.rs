@@ -54,7 +54,7 @@ pub fn get_input_stream(x: Option<&str>) -> Box<Read> {
 fn main() {
     let mut app = args::build_app("plt");
     let mut help = Cursor::new(Vec::new());
-    app.write_long_help(&mut help);
+    let _ = app.write_long_help(&mut help);
     let arg_matches = app.get_matches();
 
     //
@@ -81,18 +81,18 @@ fn main() {
         let left = !matches.is_present("right");
         let gen = Generator::new(cfg, min, max, left);
         let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
-        if matches.is_present("all") {
-            for seq in gen {
-                output_stream
-                    .write_fmt(format_args!("{}\n", GeneratedItem(&seq)))
-                    .unwrap();
+        let mut visited = HashSet::new();
+        for seq in gen {
+            if !matches.is_present("all") {
+                if visited.contains(&seq) {
+                    continue;
+                } else {
+                    visited.insert(seq.clone());
+                }
             }
-        } else {
             output_stream
-                .write_fmt(format_args!(
-                    "{}",
-                    GeneratedSet(gen.collect::<HashSet<Vec<Symbol>>>())
-                )).unwrap();
+                .write_fmt(format_args!("{}\n", GeneratedItem(&seq)))
+                .unwrap();
         }
 
     //

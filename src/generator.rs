@@ -1,6 +1,6 @@
-use std::fmt;
-use std::collections::{HashMap, HashSet};
 use cfg;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 
 pub struct Generator {
     left: bool,
@@ -12,7 +12,7 @@ pub struct Generator {
 }
 
 #[derive(Debug)]
-pub struct GeneratedItem<'a> (pub &'a Vec<cfg::Symbol>);
+pub struct GeneratedItem<'a>(pub &'a Vec<cfg::Symbol>);
 
 impl<'a> fmt::Display for GeneratedItem<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -102,7 +102,7 @@ impl Iterator for Generator {
                     let mut new_seq = next_item[..idx].to_vec();
                     new_seq.extend(seq.clone());
                     if next_item.len() > idx + 1 {
-                        new_seq.extend(next_item[idx + 1..].to_vec());
+                        new_seq.extend(next_item[idx + 1..].iter().cloned());
                     }
                     if new_seq.len() <= self.max_len {
                         if !self.visited.contains(&new_seq) {
