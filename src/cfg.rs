@@ -136,6 +136,7 @@ impl fmt::Display for Symbol {
 pub struct Production {
     pub left: Nonterminal,
     pub right: Vec<Symbol>,
+    pub trans: Option<Vec<Symbol>>,
 }
 
 impl AsRef<Production> for Production {
@@ -146,7 +147,11 @@ impl AsRef<Production> for Production {
 
 impl Production {
     pub fn new(l: Nonterminal, r: Vec<Symbol>) -> Production {
-        Production { left: l, right: r }
+        Production {
+            left: l,
+            right: r,
+            trans: None,
+        }
     }
 }
 
@@ -201,10 +206,21 @@ impl CFG {
         let file = BufReader::new(File::open(input_path)?);
         CFG::load_from_reader(file)
     }
-    pub fn load_from_reader<R: ?Sized + BufRead>(r: R) -> io::Result<CFG>
-    where
-        R: ::std::marker::Sized,
-    {
+
+    pub fn load_sdt(input_path: &str) -> io::Result<CFG> {
+        let file = BufReader::new(File::open(input_path)?);
+        CFG::load_sdt_from_reader(file)
+    }
+
+    pub fn load_from_reader<R: Sized + BufRead>(r: R) -> io::Result<CFG> {
+        CFG::load_cfg_from_reader(r, false)
+    }
+
+    pub fn load_sdt_from_reader<R: Sized + BufRead>(r: R) -> io::Result<CFG> {
+        CFG::load_cfg_from_reader(r, true)
+    }
+
+    pub fn load_cfg_from_reader<R: Sized + BufRead>(r: R, sdt: bool) -> io::Result<CFG> {
         let mut start: Option<Nonterminal> = None;
         let mut productions = BTreeSet::new();
         for line in r.lines() {
@@ -213,7 +229,7 @@ impl CFG {
             if rule.is_empty() || rule.starts_with('#') {
                 continue;
             }
-            let add_productions = CFG::parse_production(&rule)?;
+            let add_productions = CFG::parse_production(&rule, sdt)?;
             if productions.is_empty() {
                 // The first valid rule is the start character here
                 start = Some(add_productions[0].left.clone());
@@ -227,9 +243,9 @@ impl CFG {
         }
     }
 
-    pub fn parse_production(line: &str) -> io::Result<Vec<Production>> {
+    pub fn parse_production(line: &str, sdt: bool) -> io::Result<Vec<Production>> {
         let mut productions = Vec::new();
-        let rule: Vec<&str> = line.split("->").map(|x| x.trim()).collect();
+        let rule: Vec<&str> = line.split(" -> ").map(|x| x.trim()).collect();
         if rule.len() != 2 {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
@@ -249,43 +265,49 @@ impl CFG {
         }
         let left = left.as_nonterminal().unwrap();
         for rhs in rule[1].split('|').map(|x| x.trim()) {
-            let mut prod = Production::new(left.clone(), Vec::new());
-            let mut name = String::new();
-            let mut read_long_name = false;
-            for ch in rhs.chars() {
-                if ch == '>' {
-                    if !read_long_name {
-                        return Err(io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Unexpected symbol '>'"),
-                        ));
-                    }
-                    read_long_name = false;
-                }
-                if ch == '<' {
-                    if read_long_name {
-                        return Err(io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Unexpected symbol '<'"),
-                        ));
-                    }
-                    read_long_name = true;
-                }
-                name.push(ch);
-                if !read_long_name {
-                    prod.right.push(Symbol::new(name.clone()));
-                    name.truncate(0);
-                }
-            }
-            if read_long_name == true {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Unterminated Nonterminal symbol name, expect '>'"),
-                ));
-            }
+            let symbols = CFG::parse_rhs(rhs)?;
+            let mut prod = Production::new(left.clone(), symbols);
             productions.push(prod);
         }
         Ok(productions)
+    }
+
+    pub fn parse_rhs(rhs: &str) -> io::Result<Vec<Symbol>> {
+        let mut name = String::new();
+        let mut symbols = Vec::new();
+        let mut read_long_name = false;
+        for ch in rhs.chars() {
+            if ch == '>' {
+                if !read_long_name {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Unexpected symbol '>'"),
+                    ));
+                }
+                read_long_name = false;
+            }
+            if ch == '<' {
+                if read_long_name {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Unexpected symbol '<'"),
+                    ));
+                }
+                read_long_name = true;
+            }
+            name.push(ch);
+            if !read_long_name {
+                symbols.push(Symbol::new(name.clone()));
+                name.truncate(0);
+            }
+        }
+        if read_long_name {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("Unterminated Nonterminal symbol name, expect '>'"),
+            ));
+        }
+        Ok(symbols)
     }
 
     pub fn get_terminals(&self) -> HashSet<Terminal> {
@@ -687,22 +709,22 @@ mod tests {
     #[test]
     fn load_cfg() {
         let productions = vec![
-            Production {
-                left: Nonterminal::new("S".to_string(), 2),
-                right: vec![
+            Production::new(
+                Nonterminal::new("S".to_string(), 2),
+                vec![
                     Symbol::N(Nonterminal::new("S".to_string(), 1)),
                     Symbol::N(Nonterminal::new("Some".to_string(), 0)),
                     Symbol::T(Terminal { symbol: 'a' }),
                 ],
-            },
-            Production {
-                left: Nonterminal::new("S".to_string(), 2),
-                right: vec![
+            ),
+            Production::new(
+                Nonterminal::new("S".to_string(), 2),
+                vec![
                     Symbol::N(Nonterminal::new("s".to_string(), 0)),
                     Symbol::N(Nonterminal::new("S".to_string(), 0)),
                     Symbol::T(Terminal { symbol: 'a' }),
                 ],
-            },
+            ),
         ];
         let expected = CFG {
             start: productions[0].left.clone(),

@@ -53,7 +53,7 @@ impl<'de> ::serde::Deserialize<'de> for PDAState {
                 if value <= ::std::u32::MAX as u64 {
                     Ok(PDAState::State(value as u32))
                 } else {
-                    Err(E::custom(format!("too bit number {}", value)))
+                    Err(E::custom(format!("too big number {}", value)))
                 }
             }
         }
@@ -140,7 +140,8 @@ impl PDARule {
         }
     }
     pub fn applies_to(&self, cfg: &PDAConfiguration, character: Option<char>) -> bool {
-        self.state == cfg.state && self.pop_character == cfg.stack.last().cloned()
+        self.state == cfg.state
+            && self.pop_character == cfg.stack.last().cloned()
             && self.character == character
     }
 
@@ -244,7 +245,8 @@ impl DPDA {
 
     pub fn next_configuration(&mut self, character: char) -> PDAConfiguration {
         let mut current_cfg = self._current_cfg.clone();
-        let may_be_cfg = self.rulebook
+        let may_be_cfg = self
+            .rulebook
             .next_configuration(&current_cfg, Some(character));
         if may_be_cfg.is_none() {
             current_cfg = self.rulebook.follow_free_moves(current_cfg)
@@ -255,7 +257,8 @@ impl DPDA {
             println!("  Configuration:\n    current: {}", current_cfg);
         }
         let next_cfg;
-        if let Some(cfg) = self.rulebook
+        if let Some(cfg) = self
+            .rulebook
             .next_configuration(&current_cfg, Some(character))
         {
             next_cfg = cfg;
