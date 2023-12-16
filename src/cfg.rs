@@ -12,10 +12,7 @@ pub struct Nonterminal {
 
 impl Nonterminal {
     pub fn new(name: String, sub_index: u32) -> Nonterminal {
-        Nonterminal {
-            name: name,
-            sub_index: sub_index,
-        }
+        Nonterminal { name, sub_index }
     }
     pub fn parse(from: String) -> Nonterminal {
         let mut name = from.trim_matches(|x| x == '<' || x == '>').to_string();
@@ -90,8 +87,8 @@ impl Symbol {
     }
     pub fn is_nonterminal(&self) -> bool {
         match self {
-            &Symbol::T(_) => false,
-            &Symbol::N(_) => true,
+            Symbol::T(_) => false,
+            Symbol::N(_) => true,
         }
     }
     pub fn is_terminal(&self) -> bool {
@@ -99,26 +96,26 @@ impl Symbol {
     }
     pub fn is_eq_term(&self, c: char) -> bool {
         match self {
-            &Symbol::T(ref t) => t.is_a(c),
-            &Symbol::N(_) => false,
+            Symbol::T(ref t) => t.is_a(c),
+            Symbol::N(_) => false,
         }
     }
 
     pub fn is_eq_nonterm(&self, other: &Nonterminal) -> bool {
         match self {
-            &Symbol::T(_) => false,
-            &Symbol::N(ref n) => n == other,
+            Symbol::T(_) => false,
+            Symbol::N(ref n) => n == other,
         }
     }
 
     pub fn as_nonterminal(&self) -> Option<&Nonterminal> {
         match self {
-            &Symbol::T(_) => None,
-            &Symbol::N(ref x) => Some(&x),
+            Symbol::T(_) => None,
+            Symbol::N(ref x) => Some(x),
         }
     }
     pub fn merge(set: &[Symbol]) -> Symbol {
-        let name = set.iter().map(|x| format!("{}", x)).collect::<String>();
+        let name = set.iter().map(|x| x.to_string()).collect::<String>();
         Symbol::N(Nonterminal::new(name, 0))
     }
 }
@@ -126,8 +123,8 @@ impl Symbol {
 impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &Symbol::T(ref t) => write!(f, "{}", t),
-            &Symbol::N(ref n) => write!(f, "{}", n),
+            Symbol::T(t) => write!(f, "{}", t),
+            Symbol::N(n) => write!(f, "{}", n),
         }
     }
 }
@@ -141,7 +138,7 @@ pub struct Production {
 
 impl AsRef<Production> for Production {
     fn as_ref(&self) -> &Production {
-        &self
+        self
     }
 }
 
@@ -173,21 +170,15 @@ impl fmt::Display for CFG {
         }
         if let Some(mut start) = rules.remove(&self.start) {
             start.sort();
-            if let Err(e) = write!(f, "{} -> {}\n", self.start, join(start, " | ")) {
-                return Err(e);
-            }
-        } else {
-            if rules.is_empty() {
-                eprintln!("Empty rule set: {:?}", self);
-                return write!(f, "{} -> \n", self.start);
-            }
+            writeln!(f, "{} -> {}", self.start, join(start, " | "))?;
+        } else if rules.is_empty() {
+            //eprintln!("Empty rule set: {:?}", self);
+            return writeln!(f, "{} -> ", self.start);
         }
         for rule in self.productions.iter() {
             if let Some(mut val) = rules.remove(&rule.left) {
                 val.sort();
-                if let Err(e) = write!(f, "{} -> {}\n", rule.left, join(val, " | ")) {
-                    return Err(e);
-                }
+                writeln!(f, "{} -> {}", rule.left, join(val, " | "))?;
             }
         }
         Ok(())
@@ -195,11 +186,8 @@ impl fmt::Display for CFG {
 }
 
 impl CFG {
-    pub fn new(start: Nonterminal, prods: BTreeSet<Production>) -> CFG {
-        CFG {
-            start: start,
-            productions: prods,
-        }
+    pub fn new(start: Nonterminal, productions: BTreeSet<Production>) -> CFG {
+        CFG { start, productions }
     }
 
     pub fn load(input_path: &str) -> io::Result<CFG> {
@@ -224,12 +212,12 @@ impl CFG {
         let mut start: Option<Nonterminal> = None;
         let mut productions = BTreeSet::new();
         for line in r.lines() {
-            let mut text = line?;
+            let text = line?;
             let rule = text.trim();
             if rule.is_empty() || rule.starts_with('#') {
                 continue;
             }
-            let add_productions = CFG::parse_production(&rule, sdt)?;
+            let add_productions = CFG::parse_production(rule, sdt)?;
             if productions.is_empty() {
                 // The first valid rule is the start character here
                 start = Some(add_productions[0].left.clone());
@@ -243,7 +231,7 @@ impl CFG {
         }
     }
 
-    pub fn parse_production(line: &str, sdt: bool) -> io::Result<Vec<Production>> {
+    pub fn parse_production(line: &str, _sdt: bool) -> io::Result<Vec<Production>> {
         let mut productions = Vec::new();
         let rule: Vec<&str> = line.split(" -> ").map(|x| x.trim()).collect();
         if rule.len() != 2 {
@@ -266,7 +254,7 @@ impl CFG {
         let left = left.as_nonterminal().unwrap();
         for rhs in rule[1].split('|').map(|x| x.trim()) {
             let symbols = CFG::parse_rhs(rhs)?;
-            let mut prod = Production::new(left.clone(), symbols);
+            let prod = Production::new(left.clone(), symbols);
             productions.push(prod);
         }
         Ok(productions)
@@ -281,7 +269,7 @@ impl CFG {
                 if !read_long_name {
                     return Err(io::Error::new(
                         io::ErrorKind::Other,
-                        format!("Unexpected symbol '>'"),
+                        "Unexpected symbol '>'",
                     ));
                 }
                 read_long_name = false;
@@ -290,7 +278,7 @@ impl CFG {
                 if read_long_name {
                     return Err(io::Error::new(
                         io::ErrorKind::Other,
-                        format!("Unexpected symbol '<'"),
+                        "Unexpected symbol '<'",
                     ));
                 }
                 read_long_name = true;
@@ -304,7 +292,7 @@ impl CFG {
         if read_long_name {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                format!("Unterminated Nonterminal symbol name, expect '>'"),
+                "Unterminated Nonterminal symbol name, expect '>'",
             ));
         }
         Ok(symbols)
@@ -316,12 +304,13 @@ impl CFG {
             term.extend(
                 rule.right
                     .iter()
+                    .filter(|&x| !x.is_nonterminal())
                     .cloned()
-                    .filter(|x| !x.is_nonterminal())
                     .map(|x| match x {
                         Symbol::T(n) => n,
                         _ => unreachable!(),
-                    }).collect::<HashSet<Terminal>>(),
+                    })
+                    .collect::<HashSet<Terminal>>(),
             );
         }
         term
@@ -333,12 +322,13 @@ impl CFG {
             vars.extend(
                 rule.right
                     .iter()
+                    .filter(|&x| x.is_nonterminal())
                     .cloned()
-                    .filter(|x| x.is_nonterminal())
                     .map(|x| match x {
                         Symbol::N(n) => n,
                         _ => unreachable!(),
-                    }).collect::<HashSet<Nonterminal>>(),
+                    })
+                    .collect::<HashSet<Nonterminal>>(),
             );
             vars.insert(rule.left.clone());
         }
@@ -353,20 +343,21 @@ impl CFG {
             for rule in &self.productions {
                 // rule N -> epsilon or
                 // if the rule contains only Nonterminal-s and they all lead to epsilon
-                if rule.right.is_empty() || rule.right.iter().fold(true, |acc, x| {
-                    if !acc {
-                        acc
-                    } else {
-                        x.is_nonterminal() && nullable.contains(x.as_nonterminal().unwrap())
-                    }
-                }) {
-                    if nullable.insert(rule.left.clone()) {
-                        changed = true;
-                    }
+                if (rule.right.is_empty()
+                    || rule.right.iter().fold(true, |acc, x| {
+                        if !acc {
+                            acc
+                        } else {
+                            x.is_nonterminal() && nullable.contains(x.as_nonterminal().unwrap())
+                        }
+                    }))
+                    && nullable.insert(rule.left.clone())
+                {
+                    changed = true;
                 }
             }
         }
-        return nullable;
+        nullable
     }
 
     pub fn simplify(&self) -> CFG {
@@ -404,17 +395,15 @@ impl CFG {
                             {
                                 let mut new = r.clone();
                                 new.right.remove(idx);
-                                if
-                                // skip new epsilon rule
-                                !new.right.is_empty()
-                                    // skip new unit rule
-                                    && !(new.right.len() == 1 && new.right[0].is_nonterminal()
-                                    && new.right[0].as_nonterminal().unwrap() == &new.left)
+                                // skip new epsilon rule and skip new unit rule
+                                if !new.right.is_empty()
+                                    && !(new.right.len() == 1
+                                        && new.right[0].is_nonterminal()
+                                        && new.right[0].as_nonterminal().unwrap() == &new.left)
+                                    && new_rules.insert(new.clone())
                                 {
-                                    if new_rules.insert(new.clone()) {
-                                        changed = true;
-                                        source2.insert(new);
-                                    }
+                                    changed = true;
+                                    source2.insert(new);
                                 }
                             }
                         }
@@ -447,23 +436,24 @@ impl CFG {
             .collect::<HashMap<Nonterminal, HashSet<Nonterminal>>>();
 
         for nonterm in &self.get_variables() {
-            let mut set = unit_sets.get_mut(nonterm).unwrap();
+            let set = unit_sets.get_mut(nonterm).unwrap();
             let mut changed = true;
             while changed {
                 changed = false;
                 for rule in &self.productions {
-                    if rule.right.len() == 1 && rule.right[0].is_nonterminal() {
-                        if set.contains(&rule.left) {
-                            // add rule.right<Nonterminal> into unit_sets[rule.left]{} set
-                            let right = rule.right[0].as_nonterminal().unwrap();
-                            if set.insert(right.clone()) {
-                                changed = true
-                            }
+                    if rule.right.len() == 1
+                        && rule.right[0].is_nonterminal()
+                        && set.contains(&rule.left)
+                    {
+                        // add rule.right<Nonterminal> into unit_sets[rule.left]{} set
+                        let right = rule.right[0].as_nonterminal().unwrap();
+                        if set.insert(right.clone()) {
+                            changed = true
                         }
                     }
                 }
             }
-            set.remove(&nonterm);
+            set.remove(nonterm);
         }
         let rules = self
             .productions
@@ -495,12 +485,13 @@ impl CFG {
                 let right_nonterm_set: BTreeSet<Nonterminal> = rule
                     .right
                     .iter()
+                    .filter(|&x| x.is_nonterminal())
                     .cloned()
-                    .filter(|x| x.is_nonterminal())
                     .map(|x| match x {
                         Symbol::N(n) => n,
                         _ => unreachable!(),
-                    }).collect();
+                    })
+                    .collect();
                 if right_nonterm_set.is_empty()
                     || right_nonterm_set.is_subset(&usefull_nonterminals)
                 {
@@ -516,12 +507,13 @@ impl CFG {
             let right_nonterm_set: BTreeSet<Nonterminal> = rule
                 .right
                 .iter()
+                .filter(|&x| x.is_nonterminal())
                 .cloned()
-                .filter(|x| x.is_nonterminal())
                 .map(|x| match x {
                     Symbol::N(n) => n,
                     _ => unreachable!(),
-                }).collect();
+                })
+                .collect();
             let here = usefull_nonterminals.contains(&rule.left);
             if here && right_nonterm_set.is_subset(&usefull_nonterminals) {
                 productions.insert(rule.clone());
@@ -600,30 +592,31 @@ impl CFG {
                 self.start
             ))
         } else if self != &self.remove_start_from_rhs().remove_epsilon_rules() {
-            Some(format!("Epsilon rules are not excluded from grammar"))
-        } else if self != &self
-            .remove_start_from_rhs()
-            .remove_epsilon_rules()
-            .remove_unit_rules()
+            Some("Epsilon rules are not excluded from grammar".into())
+        } else if self
+            != &self
+                .remove_start_from_rhs()
+                .remove_epsilon_rules()
+                .remove_unit_rules()
         {
-            Some(format!("There are Unit rules in the grammar"))
-        } else if self != &self
-            .remove_start_from_rhs()
-            .remove_epsilon_rules()
-            .remove_unit_rules()
-            .remove_useless_rules()
+            Some("There are Unit rules in the grammar".into())
+        } else if self
+            != &self
+                .remove_start_from_rhs()
+                .remove_epsilon_rules()
+                .remove_unit_rules()
+                .remove_useless_rules()
         {
-            Some(format!(
-                "There are non-generating characters in the grammar"
-            ))
-        } else if self != &self
-            .remove_start_from_rhs()
-            .remove_epsilon_rules()
-            .remove_unit_rules()
-            .remove_useless_rules()
-            .remove_unreachable_rules()
+            Some("There are non-generating characters in the grammar".into())
+        } else if self
+            != &self
+                .remove_start_from_rhs()
+                .remove_epsilon_rules()
+                .remove_unit_rules()
+                .remove_useless_rules()
+                .remove_unreachable_rules()
         {
-            Some(format!("There are unreachable characters in the grammar"))
+            Some("There are unreachable characters in the grammar".into())
         } else {
             None
         }
@@ -693,7 +686,7 @@ impl CFG {
     pub fn greibach(&self) -> CFG {
         let cfg = self.chomsky();
         let cfg = cfg.eliminate_left_recursion();
-        CFG::new(self.start.clone(), self.productions.clone())
+        CFG::new(cfg.start.clone(), cfg.productions.clone())
     }
 
     pub fn eliminate_left_recursion(&self) -> CFG {

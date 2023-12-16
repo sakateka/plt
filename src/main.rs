@@ -31,23 +31,23 @@ use std::io::{self, BufRead, BufReader, BufWriter, Cursor, Read, Write};
 use std::path::Path;
 use std::process;
 
-pub fn get_output_stream(x: Option<&str>) -> Box<Write> {
+pub fn get_output_stream(x: Option<&str>) -> Box<dyn Write> {
     match x {
         Some(x) => {
             let path = Path::new(x);
-            Box::new(File::create(&path).unwrap()) as Box<Write>
+            Box::new(File::create(path).unwrap()) as Box<dyn Write>
         }
-        None => Box::new(io::stdout()) as Box<Write>,
+        None => Box::new(io::stdout()) as Box<dyn Write>,
     }
 }
 
-pub fn get_input_stream(x: Option<&str>) -> Box<Read> {
+pub fn get_input_stream(x: Option<&str>) -> Box<dyn Read> {
     match x {
         Some(x) => {
             let path = Path::new(x);
-            Box::new(File::create(&path).unwrap()) as Box<Read>
+            Box::new(File::create(path).unwrap()) as Box<dyn Read>
         }
-        None => Box::new(io::stdin()) as Box<Read>,
+        None => Box::new(io::stdin()) as Box<dyn Read>,
     }
 }
 
@@ -63,13 +63,14 @@ fn main() {
     if let Some(matches) = arg_matches.subcommand_matches("gen") {
         let grammar = matches.value_of("CFG").unwrap();
         let cfg = CFG::load(grammar)
-            .and_then(|x| {
-                Ok(if matches.is_present("chomsky") {
+            .map(|x| {
+                if matches.is_present("chomsky") {
                     x.chomsky()
                 } else {
                     x.simplify()
-                })
-            }).unwrap();
+                }
+            })
+            .unwrap();
         let mut min: u32 = 0;
         if matches.is_present("len-min") {
             min = value_t_or_exit!(matches, "len-min", u32);
@@ -171,12 +172,10 @@ fn main() {
                 } else {
                     println!("- REFUSE");
                 }
+            } else if cyk.accepts(&text) {
+                println!("- ACCEPT");
             } else {
-                if cyk.accepts(&text) {
-                    println!("- ACCEPT");
-                } else {
-                    println!("- REFUSE");
-                }
+                println!("- REFUSE");
             }
         }
 
@@ -221,9 +220,7 @@ fn main() {
 
         let input = get_input_stream(matches.value_of("INPUT"));
 
-        let mut dpda_design = DPDADesign::load(dpda_spec).unwrap();
-
-        let dpda_design = dpda_design;
+        let dpda_design = DPDADesign::load(dpda_spec).unwrap();
         let buf = BufReader::new(input);
         for line in buf.lines() {
             let text = line.unwrap();
@@ -252,9 +249,7 @@ fn main() {
 
         let input = get_input_stream(matches.value_of("INPUT"));
 
-        let mut dpdt_design = DPDTDesign::load(dpdt_spec).unwrap();
-
-        let dpdt_design = dpdt_design;
+        let dpdt_design = DPDTDesign::load(dpdt_spec).unwrap();
         let buf = BufReader::new(input);
         for line in buf.lines() {
             let text = line.unwrap();
@@ -314,7 +309,8 @@ fn main() {
                 join(chomsky_cfg.get_variables().iter().collect::<Vec<_>>(), ","),
                 chomsky_cfg.start,
                 chomsky_cfg,
-            )).unwrap();
+            ))
+            .unwrap();
 
         let chomsky_gen = Generator::new(chomsky_cfg, min, max, true);
         let gen = Generator::new(cfg, min, max, true);
@@ -323,7 +319,7 @@ fn main() {
         let chomsky_set: HashSet<Vec<Symbol>> = chomsky_gen.collect();
         if normal_set != chomsky_set {
             output_stream
-                .write(b"Sets of generated sequences do not match\n")
+                .write_all(b"Sets of generated sequences do not match\n")
                 .unwrap();
             let diff = GeneratedSet(chomsky_set.difference(&normal_set).cloned().collect());
             if !diff.0.is_empty() {
@@ -339,7 +335,7 @@ fn main() {
             }
         } else {
             output_stream
-                .write(b"OK! The generated sets are equal!\n")
+                .write_all(b"OK! The generated sets are equal!\n")
                 .unwrap();
         }
         if matches.is_present("verbose") {
@@ -367,7 +363,8 @@ fn main() {
                     "CNF",
                     num_width = num_width,
                     width = max as usize,
-                )).unwrap();
+                ))
+                .unwrap();
             for (idx, key) in result.keys().sorted().into_iter().enumerate() {
                 let v = result.get(key).unwrap();
                 output_stream
@@ -378,7 +375,8 @@ fn main() {
                         v.1,
                         num_width = num_width,
                         width = max as usize,
-                    )).unwrap();
+                    ))
+                    .unwrap();
             }
         }
     } else {

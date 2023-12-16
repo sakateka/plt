@@ -35,6 +35,7 @@ impl SDT {
             Ok(sdt) => Ok(sdt),
             Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
         }?;
+        todo!();
         Ok(SDT {
             rules: HashMap::new(),
         })

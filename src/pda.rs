@@ -1,6 +1,5 @@
 use serde_yaml;
 
-use std::error::Error;
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -25,8 +24,8 @@ impl fmt::Display for PDAState {
             f,
             "{}",
             match self {
-                &PDAState::State(num) => format!("{}", num),
-                &PDAState::Stuck => format!("STUCK"),
+                PDAState::State(num) => format!("{}", num),
+                PDAState::Stuck => "STUCK".to_owned(),
             }
         )
     }
@@ -78,7 +77,7 @@ impl PDAConfiguration {
     pub fn new(state: u32, stack: Vec<char>) -> PDAConfiguration {
         PDAConfiguration {
             state: PDAState::State(state),
-            stack: stack,
+            stack,
         }
     }
     pub fn stuck(&self) -> PDAConfiguration {
@@ -133,10 +132,10 @@ impl PDARule {
     ) -> PDARule {
         PDARule {
             state: PDAState::new(state),
-            character: character,
+            character,
             next_state: PDAState::new(next_state),
-            pop_character: pop_character,
-            push_characters: push_characters,
+            pop_character,
+            push_characters,
         }
     }
     pub fn applies_to(&self, cfg: &PDAConfiguration, character: Option<char>) -> bool {
@@ -147,7 +146,7 @@ impl PDARule {
 
     pub fn follow(&self, cfg: &PDAConfiguration) -> PDAConfiguration {
         PDAConfiguration {
-            state: self.next_state.clone(),
+            state: self.next_state,
             stack: self.next_stack(cfg),
         }
     }
@@ -171,7 +170,7 @@ pub struct DPDARulebook {
 impl DPDARulebook {
     #[allow(unused)]
     pub fn new(rules: Vec<PDARule>) -> DPDARulebook {
-        DPDARulebook { rules: rules }
+        DPDARulebook { rules }
     }
 
     pub fn next_configuration(
@@ -179,16 +178,12 @@ impl DPDARulebook {
         cfg: &PDAConfiguration,
         character: Option<char>,
     ) -> Option<PDAConfiguration> {
-        if let Some(rule) = self.rule_for(cfg, character) {
-            Some(rule.follow(cfg))
-        } else {
-            None
-        }
+        self.rule_for(cfg, character).map(|rule| rule.follow(cfg))
     }
     pub fn rule_for(&self, cfg: &PDAConfiguration, character: Option<char>) -> Option<&PDARule> {
         self.rules
             .iter()
-            .find(|ref rule| rule.applies_to(cfg, character))
+            .find(|rule| rule.applies_to(cfg, character))
     }
 
     pub fn applies_to(&self, cfg: &PDAConfiguration, character: Option<char>) -> bool {
@@ -223,9 +218,9 @@ impl DPDA {
         DPDA {
             _current_cfg: cfg,
             accept_states: accept_states.iter().map(|x| PDAState::new(*x)).collect(),
-            rulebook: rulebook,
-            accept_by_empty_stack: accept_by_empty_stack,
-            traversed_path: traversed_path,
+            rulebook,
+            accept_by_empty_stack,
+            traversed_path,
         }
     }
 
@@ -270,7 +265,7 @@ impl DPDA {
     }
 
     pub fn next_rule(&self, cfg: &PDAConfiguration, character: char) -> Option<PDARule> {
-        self.rulebook.rule_for(&cfg, Some(character)).cloned()
+        self.rulebook.rule_for(cfg, Some(character)).cloned()
     }
 
     pub fn current_cfg(&self) -> PDAConfiguration {
@@ -317,7 +312,7 @@ impl DPDADesign {
             start_state: start,
             bottom_character: bottom,
             accept_states: accept,
-            rulebook: rulebook,
+            rulebook,
             accept_by_empty_stack: false,
         }
     }
@@ -333,7 +328,7 @@ impl DPDADesign {
     {
         match serde_yaml::from_reader(r) {
             Ok(design) => Ok(design),
-            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err.description())),
+            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
         }
     }
 
@@ -344,7 +339,7 @@ impl DPDADesign {
             ok: dpda.accepting(),
             cfg: dpda.current_cfg(),
             path: dpda.traversed_path,
-            eaten_part: eaten_part,
+            eaten_part,
         }
     }
 
@@ -353,7 +348,7 @@ impl DPDADesign {
         let start_cfg = PDAConfiguration::new(self.start_state, start_stack);
         DPDA::new(
             start_cfg,
-            self.accept_states.iter().cloned().collect(),
+            self.accept_states.to_vec(),
             self.rulebook.clone(),
             self.accept_by_empty_stack,
             Some(Vec::new()),
@@ -378,7 +373,7 @@ mod tests {
     fn applies_to() {
         let rule = PDARule::new(1, Some('('), 2, Some('$'), vec!['b', '$']);
         let cfg = PDAConfiguration::new(1, vec!['$']);
-        assert_eq!(rule.applies_to(&cfg, Some('(')), true);
+        assert!(rule.applies_to(&cfg, Some('(')));
     }
 
     #[test]
@@ -422,7 +417,7 @@ mod tests {
 
         assert!(dpda.accepting(), "Initial state not accepting!");
         dpda.read_string("(()");
-        assert_eq!(dpda.accepting(), false, "Accept invalid string!");
+        assert!(!dpda.accepting(), "Accept invalid string!");
 
         assert_eq!(
             dpda.current_cfg(),
@@ -431,17 +426,17 @@ mod tests {
         );
 
         dpda.read_string(")");
-        assert_eq!(dpda.accepting(), true, "Accept expected!");
+        assert!(dpda.accepting(), "Accept expected!");
 
         dpda.read_string("(()(");
-        assert_eq!(dpda.accepting(), false, "Accept invalid string!");
+        assert!(!dpda.accepting(), "Accept invalid string!");
         assert_eq!(
             dpda.current_cfg(),
             PDAConfiguration::new(2, vec!['$', 'b', 'b'])
         );
         dpda.read_string("))()");
         assert_eq!(dpda.current_cfg(), PDAConfiguration::new(1, vec!['$']));
-        assert_eq!(dpda.accepting(), true, "Accept expected!");
+        assert!(dpda.accepting(), "Accept expected!");
     }
 
     #[test]

@@ -32,7 +32,7 @@ pub struct GeneratedSet(pub HashSet<Vec<cfg::Symbol>>);
 impl fmt::Display for GeneratedSet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for item in &self.0 {
-            write!(f, "{}\n", GeneratedItem(item)).unwrap();
+            writeln!(f, "{}", GeneratedItem(item)).unwrap();
         }
         Ok(())
     }
@@ -50,15 +50,15 @@ impl Generator {
             rules.insert(cfg::Symbol::N(rule.left.clone()), symbols);
         }
         let mut queue = HashSet::new();
-        for cases in rules.get(&cfg::Symbol::N(grammar.start)) {
+        if let Some(cases) = rules.get(&cfg::Symbol::N(grammar.start)) {
             for case in cases {
                 queue.insert(case.clone());
             }
         }
         Generator {
-            left: left,
-            rules: rules,
-            queue: queue,
+            left,
+            rules,
+            queue,
             visited: HashSet::new(),
             min_len: lmin as usize,
             max_len: lmax as usize,
@@ -104,11 +104,9 @@ impl Iterator for Generator {
                     if next_item.len() > idx + 1 {
                         new_seq.extend(next_item[idx + 1..].iter().cloned());
                     }
-                    if new_seq.len() <= self.max_len {
-                        if !self.visited.contains(&new_seq) {
-                            self.visited.insert(new_seq.clone());
-                            self.queue.insert(new_seq);
-                        }
+                    if new_seq.len() <= self.max_len && !self.visited.contains(&new_seq) {
+                        self.visited.insert(new_seq.clone());
+                        self.queue.insert(new_seq);
                     }
                 }
             } else {

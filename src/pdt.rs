@@ -1,6 +1,5 @@
 use serde_yaml;
 
-use std::error::Error;
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -25,8 +24,8 @@ impl fmt::Display for PDTState {
             f,
             "{}",
             match self {
-                &PDTState::State(num) => format!("{}", num),
-                &PDTState::Stuck => format!("STUCK"),
+                PDTState::State(num) => format!("{}", num),
+                PDTState::Stuck => "STUCK".to_owned(),
             }
         )
     }
@@ -88,7 +87,7 @@ impl PDTConfiguration {
     pub fn new(state: u32, stack: Vec<char>, translated: Vec<&str>) -> PDTConfiguration {
         PDTConfiguration {
             state: PDTState::State(state),
-            stack: stack,
+            stack,
             translated: translated.iter().map(|x| x.to_string()).collect(),
         }
     }
@@ -139,14 +138,14 @@ impl PDTRule {
         pop_character: Option<char>,
         push_characters: Vec<char>,
     ) -> PDTRule {
-        let trans = translated.and_then(|x| Some(x.to_string()));
+        let trans = translated.map(|x| x.to_string());
         PDTRule {
             state: PDTState::new(state),
-            character: character,
+            character,
             translated: trans,
             next_state: PDTState::new(next_state),
-            pop_character: pop_character,
-            push_characters: push_characters,
+            pop_character,
+            push_characters,
         }
     }
     pub fn applies_to(&self, cfg: &PDTConfiguration, character: Option<char>) -> bool {
@@ -160,9 +159,9 @@ impl PDTRule {
             translated.push(ch);
         }
         PDTConfiguration {
-            state: self.next_state.clone(),
+            state: self.next_state,
             stack: self.next_stack(cfg),
-            translated: translated,
+            translated,
         }
     }
     pub fn next_stack(&self, cfg: &PDTConfiguration) -> Vec<char> {
@@ -185,7 +184,7 @@ pub struct DPDTRulebook {
 impl DPDTRulebook {
     #[allow(unused)]
     pub fn new(rules: Vec<PDTRule>) -> DPDTRulebook {
-        DPDTRulebook { rules: rules }
+        DPDTRulebook { rules }
     }
 
     pub fn next_configuration(
@@ -193,16 +192,12 @@ impl DPDTRulebook {
         cfg: &PDTConfiguration,
         character: Option<char>,
     ) -> Option<PDTConfiguration> {
-        if let Some(rule) = self.rule_for(cfg, character) {
-            Some(rule.follow(cfg))
-        } else {
-            None
-        }
+        self.rule_for(cfg, character).map(|rule| rule.follow(cfg))
     }
     pub fn rule_for(&self, cfg: &PDTConfiguration, character: Option<char>) -> Option<&PDTRule> {
         self.rules
             .iter()
-            .find(|ref rule| rule.applies_to(cfg, character))
+            .find(|rule| rule.applies_to(cfg, character))
     }
 
     pub fn applies_to(&self, cfg: &PDTConfiguration, character: Option<char>) -> bool {
@@ -235,8 +230,8 @@ impl DPDT {
         DPDT {
             _current_cfg: cfg,
             accept_states: accept_states.iter().map(|x| PDTState::new(*x)).collect(),
-            rulebook: rulebook,
-            accept_by_empty_stack: accept_by_empty_stack,
+            rulebook,
+            accept_by_empty_stack,
         }
     }
 
@@ -279,7 +274,7 @@ impl DPDT {
     }
 
     pub fn next_rule(&self, cfg: &PDTConfiguration, character: char) -> Option<PDTRule> {
-        self.rulebook.rule_for(&cfg, Some(character)).cloned()
+        self.rulebook.rule_for(cfg, Some(character)).cloned()
     }
 
     pub fn current_cfg(&self) -> PDTConfiguration {
@@ -325,7 +320,7 @@ impl DPDTDesign {
             start_state: start,
             bottom_character: bottom,
             accept_states: accept,
-            rulebook: rulebook,
+            rulebook,
             accept_by_empty_stack: false,
         }
     }
@@ -341,7 +336,7 @@ impl DPDTDesign {
     {
         match serde_yaml::from_reader(r) {
             Ok(design) => Ok(design),
-            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err.description())),
+            Err(err) => Err(io::Error::new(io::ErrorKind::Other, err.to_string())),
         }
     }
 
@@ -351,7 +346,7 @@ impl DPDTDesign {
         DPDTDesignResult {
             ok: dpdt.accepting(),
             cfg: dpdt.current_cfg(),
-            eaten_part: eaten_part,
+            eaten_part,
         }
     }
 
@@ -360,7 +355,7 @@ impl DPDTDesign {
         let start_cfg = PDTConfiguration::new(self.start_state, start_stack, Vec::new());
         DPDT::new(
             start_cfg,
-            self.accept_states.iter().cloned().collect(),
+            self.accept_states.to_vec(),
             self.rulebook.clone(),
             self.accept_by_empty_stack,
         )
@@ -384,7 +379,7 @@ mod tests {
     fn applies_to() {
         let rule = PDTRule::new(1, Some('('), Some("["), 2, Some('$'), vec!['b', '$']);
         let cfg = PDTConfiguration::new(1, vec!['$'], Vec::new());
-        assert_eq!(rule.applies_to(&cfg, Some('(')), true);
+        assert!(rule.applies_to(&cfg, Some('(')));
     }
 
     #[test]
@@ -448,7 +443,7 @@ mod tests {
 
         assert!(dpdt.accepting(), "Initial state not accepting!");
         dpdt.read_string("(()");
-        assert_eq!(dpdt.accepting(), false, "Accept invalid string!");
+        assert!(!dpdt.accepting(), "Accept invalid string!");
 
         assert_eq!(
             dpdt.current_cfg(),
@@ -457,10 +452,10 @@ mod tests {
         );
 
         dpdt.read_string(")");
-        assert_eq!(dpdt.accepting(), true, "Accept expected!");
+        assert!(dpdt.accepting(), "Accept expected!");
 
         dpdt.read_string("(()(");
-        assert_eq!(dpdt.accepting(), false, "Accept invalid string!");
+        assert!(!dpdt.accepting(), "Accept invalid string!");
         assert_eq!(
             dpdt.current_cfg(),
             PDTConfiguration::new(
@@ -478,7 +473,7 @@ mod tests {
                 vec!["[", "[", "]", "]", "[", "[", "]", "[", "]", "]", "[", "]"]
             )
         );
-        assert_eq!(dpdt.accepting(), true, "Accept expected!");
+        assert!(dpdt.accepting(), "Accept expected!");
     }
 
     #[test]

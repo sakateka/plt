@@ -65,9 +65,9 @@ impl State {
         }
         Ok(State {
             name: name.to_owned(),
-            is_start: is_start,
-            is_accept: is_accept,
-            row: row,
+            is_start,
+            is_accept,
+            row,
         })
     }
     pub fn is_error(&self) -> bool {
@@ -82,9 +82,9 @@ impl<'a> fmt::Display for DerivationPath<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for s in self.0 {
             if s.is_error() {
-                write!(f, "->{}", "(ERROR)".to_string()).unwrap();
+                write!(f, "->(ERROR)")?;
             } else {
-                write!(f, "->{}", s.name).unwrap();
+                write!(f, "->{}", s.name)?;
             }
         }
         Ok(())
@@ -153,8 +153,8 @@ impl DFA {
 
         Ok(DFA {
             start: start.iter().next().unwrap().to_owned().0,
-            finish: finish,
-            jump: jump,
+            finish,
+            jump,
         })
     }
 
@@ -170,10 +170,10 @@ impl DFA {
         let mut lines = r.lines()
             .map(|l| match l {
                 Ok(t) => t.trim().to_owned(),
-                Err(e) => panic!(e),
+                Err(e) => panic!("{:?}", e),
             })
             .filter(|l| {
-                if l.is_empty() || l.starts_with("#") {
+                if l.is_empty() || l.starts_with('#') {
                     if debug {
                         eprintln!("Skip: {}", l);
                     }
@@ -310,7 +310,7 @@ impl DFA {
         msg == "OK"
     }
 
-    pub fn check(&self, input: Box<Read>, show_path: bool) -> io::Result<()> {
+    pub fn check(&self, input: Box<dyn Read>, show_path: bool) -> io::Result<()> {
         let buf = BufReader::new(input);
         for line in buf.lines() {
             self.check_string(line?, show_path);
