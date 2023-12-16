@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate clap;
 extern crate itertools;
 
@@ -31,7 +30,7 @@ use std::io::{self, BufRead, BufReader, BufWriter, Cursor, Read, Write};
 use std::path::Path;
 use std::process;
 
-pub fn get_output_stream(x: Option<&str>) -> Box<dyn Write> {
+pub fn get_output_stream(x: Option<&String>) -> Box<dyn Write> {
     match x {
         Some(x) => {
             let path = Path::new(x);
@@ -41,7 +40,7 @@ pub fn get_output_stream(x: Option<&str>) -> Box<dyn Write> {
     }
 }
 
-pub fn get_input_stream(x: Option<&str>) -> Box<dyn Read> {
+pub fn get_input_stream(x: Option<&String>) -> Box<dyn Read> {
     match x {
         Some(x) => {
             let path = Path::new(x);
@@ -51,8 +50,8 @@ pub fn get_input_stream(x: Option<&str>) -> Box<dyn Read> {
     }
 }
 
-fn main() {
-    let mut app = args::build_app("plt");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut app = args::build_app();
     let mut help = Cursor::new(Vec::new());
     let _ = app.write_long_help(&mut help);
     let arg_matches = app.get_matches();
@@ -61,30 +60,24 @@ fn main() {
     //// Gen
     //
     if let Some(matches) = arg_matches.subcommand_matches("gen") {
-        let grammar = matches.value_of("CFG").unwrap();
+        let grammar = matches.get_one::<String>("CFG").unwrap();
         let cfg = CFG::load(grammar)
             .map(|x| {
-                if matches.is_present("chomsky") {
+                if matches.contains_id("chomsky") {
                     x.chomsky()
                 } else {
                     x.simplify()
                 }
             })
             .unwrap();
-        let mut min: u32 = 0;
-        if matches.is_present("len-min") {
-            min = value_t_or_exit!(matches, "len-min", u32);
-        }
-        let mut max: u32 = 8;
-        if matches.is_present("len-max") {
-            max = value_t_or_exit!(matches, "len-max", u32);
-        }
-        let left = !matches.is_present("right");
+        let min: u32 = *matches.get_one::<u32>("len-min").unwrap_or(&0);
+        let max: u32 = *matches.get_one::<u32>("len-max").unwrap_or(&8);
+        let left = !matches.contains_id("right");
         let gen = Generator::new(cfg, min, max, left);
-        let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
+        let mut output_stream = BufWriter::new(get_output_stream(matches.get_one::<String>("OUT")));
         let mut visited = HashSet::new();
         for seq in gen {
-            if !matches.is_present("all") {
+            if !matches.contains_id("all") {
                 if visited.contains(&seq) {
                     continue;
                 } else {
@@ -100,16 +93,16 @@ fn main() {
     //// Simplify
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("simplify") {
-        let grammar = matches.value_of("CFG").unwrap();
+        let grammar = matches.get_one::<String>("CFG").unwrap();
         let mut cfg = CFG::load(grammar).unwrap();
 
-        let mut output_stream = get_output_stream(matches.value_of("OUT"));
+        let mut output_stream = get_output_stream(matches.get_one::<String>("OUT"));
 
         let verbose = |title: &str, cfg: &CFG| {
-            if matches.is_present("verbose") {
+            if matches.contains_id("verbose") {
                 eprintln!("{}\n{}", title, cfg);
             }
-            if matches.is_present("debug") {
+            if matches.contains_id("debug") {
                 eprintln!("{}\n{:?}\n", title, cfg);
             }
         };
@@ -133,7 +126,7 @@ fn main() {
 
             cfg
         };
-        if matches.is_present("reverse") {
+        if matches.contains_id("reverse") {
             cfg = remove_useless_and_unreachable(cfg);
             cfg = remove_epsilon_and_unit(cfg);
         } else {
@@ -142,7 +135,7 @@ fn main() {
             cfg = remove_useless_and_unreachable(cfg);
         }
 
-        if matches.is_present("chomsky") {
+        if matches.contains_id("chomsky") {
             cfg = cfg.chomsky();
             verbose("Chomsky Normal Form", &cfg);
         }
@@ -152,13 +145,13 @@ fn main() {
     //// CYK
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("cyk") {
-        let show_path = matches.is_present("parse");
+        let show_path = matches.contains_id("parse");
 
-        let grammar = matches.value_of("CFG").unwrap();
+        let grammar = matches.get_one::<String>("CFG").unwrap();
         let cfg = CFG::load(grammar).unwrap();
         let cyk = CYKParser::new(&cfg);
 
-        let input = BufReader::new(get_input_stream(matches.value_of("INPUT")));
+        let input = BufReader::new(get_input_stream(matches.get_one::<String>("INPUT")));
 
         for line in input.lines() {
             let text = line.unwrap();
@@ -183,15 +176,15 @@ fn main() {
     //// EarleyParser
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("earley") {
-        let grammar = matches.value_of("CFG").unwrap();
+        let grammar = matches.get_one::<String>("CFG").unwrap();
         let mut cfg = CFG::load(grammar).unwrap();
-        if matches.is_present("simplify") {
+        if matches.contains_id("simplify") {
             cfg = cfg.simplify()
         }
-        if matches.is_present("chomsky") {
+        if matches.contains_id("chomsky") {
             cfg = cfg.chomsky()
         }
-        let input = get_input_stream(matches.value_of("INPUT"));
+        let input = get_input_stream(matches.get_one::<String>("INPUT"));
         let earley = EarleyParser::new(&cfg);
         let buf = BufReader::new(input);
         for line in buf.lines() {
@@ -205,20 +198,20 @@ fn main() {
     //// DFA
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("dfa") {
-        let dfa_table = matches.value_of("DFA").unwrap();
-        let debug = matches.is_present("debug");
-        let show_path = matches.is_present("path");
+        let dfa_table = matches.get_one::<String>("DFA").unwrap();
+        let debug = matches.contains_id("debug");
+        let show_path = matches.contains_id("path");
         let dfa = DFA::load(dfa_table, debug).unwrap();
-        let input = get_input_stream(matches.value_of("INPUT"));
+        let input = get_input_stream(matches.get_one::<String>("INPUT"));
         dfa.check(input, show_path).unwrap();
 
     //
     //// DPDA
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("dpda") {
-        let dpda_spec = matches.value_of("DPDA").unwrap();
+        let dpda_spec = matches.get_one::<String>("DPDA").unwrap().as_str();
 
-        let input = get_input_stream(matches.value_of("INPUT"));
+        let input = get_input_stream(matches.get_one::<String>("INPUT"));
 
         let dpda_design = DPDADesign::load(dpda_spec).unwrap();
         let buf = BufReader::new(input);
@@ -245,9 +238,9 @@ fn main() {
     //// DPDT
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("dpdt") {
-        let dpdt_spec = matches.value_of("DPDT").unwrap();
+        let dpdt_spec = matches.get_one::<String>("DPDT").unwrap().as_str();
 
-        let input = get_input_stream(matches.value_of("INPUT"));
+        let input = get_input_stream(matches.get_one::<String>("INPUT"));
 
         let dpdt_design = DPDTDesign::load(dpdt_spec).unwrap();
         let buf = BufReader::new(input);
@@ -285,21 +278,16 @@ fn main() {
     //// Course Work
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("coursework") {
-        let grammar = matches.value_of("CFG").unwrap();
+        let grammar = matches.get_one::<String>("CFG").unwrap();
         let cfg = CFG::load(grammar).expect("Load CFG");
-        let mut min: u32 = 0;
-        if matches.is_present("len-min") {
-            min = value_t_or_exit!(matches, "len-min", u32);
-        }
-        let mut max: u32 = 8;
-        if matches.is_present("len-max") {
-            max = value_t_or_exit!(matches, "len-max", u32);
-        }
+
+        let min: u32 = *matches.get_one::<u32>("len-min").unwrap_or(&0);
+        let max: u32 = *matches.get_one::<u32>("len-max").unwrap_or(&8);
         if let Some(reason) = cfg.is_normal_form() {
             eprintln!("ERROR: {}\n{}", reason, cfg);
             process::exit(1);
         }
-        let mut output_stream = BufWriter::new(get_output_stream(matches.value_of("OUT")));
+        let mut output_stream = BufWriter::new(get_output_stream(matches.get_one::<String>("OUT")));
 
         let chomsky_cfg = cfg.chomsky();
         output_stream
@@ -338,7 +326,7 @@ fn main() {
                 .write_all(b"OK! The generated sets are equal!\n")
                 .unwrap();
         }
-        if matches.is_present("verbose") {
+        if matches.contains_id("verbose") {
             let mut result: HashMap<String, (String, String)> = HashMap::new();
             normal_set.iter().for_each(|x| {
                 let key = GeneratedItem(x).to_string();
@@ -365,7 +353,7 @@ fn main() {
                     width = max as usize,
                 ))
                 .unwrap();
-            for (idx, key) in result.keys().sorted().into_iter().enumerate() {
+            for (idx, key) in result.keys().sorted().enumerate() {
                 let v = result.get(key).unwrap();
                 output_stream
                     .write_fmt(format_args!(
@@ -382,4 +370,5 @@ fn main() {
     } else {
         print!("{}", String::from_utf8(help.into_inner()).unwrap());
     }
+    Ok(())
 }

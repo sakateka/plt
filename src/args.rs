@@ -1,201 +1,224 @@
-use clap::{App, Arg, SubCommand};
+use clap::{Command, Arg};
 
-pub fn build_app(name: &str) -> App {
-    App::new(name)
+
+pub fn build_app() -> Command {
+    Command::new("plt")
         .version("5.4.0")
         .author("Sergey Kacheev <uo0@ya.ru>")
         .about("Theory of Programming Languages and Translation Methods")
         .subcommand(
-            SubCommand::with_name("gen")
+            Command::new("gen")
                 .about("Sequence generator by CFG")
                 .arg(
-                    Arg::with_name("right")
+                    Arg::new("right")
                         .long("right")
-                        .short("r")
+                        .short('r')
                         .help("Use the right-hand derivation (default left-hand)"),
-                ).arg(
-                    Arg::with_name("len-min")
+                )
+                .arg(
+                    Arg::new("len-min")
                         .long("len-min")
-                        .takes_value(true)
+                        .num_args(1)
                         .help("Minimum sequence lenght (default 0)"),
-                ).arg(
-                    Arg::with_name("len-max")
+                )
+                .arg(
+                    Arg::new("len-max")
                         .long("len-max")
-                        .takes_value(true)
+                        .num_args(1)
                         .help("Maximum sequence lenght (default 8)"),
-                ).arg(
-                    Arg::with_name("all")
+                )
+                .arg(
+                    Arg::new("all")
                         .long("all")
-                        .short("a")
+                        .short('a')
                         .help("Show all sequences together with duplicates"),
-                ).arg(
-                    Arg::with_name("chomsky")
+                )
+                .arg(
+                    Arg::new("chomsky")
                         .long("chomsky")
                         .help("Chomsky Normal Form"),
-                ).arg(
-                    Arg::with_name("CFG")
+                )
+                .arg(
+                    Arg::new("CFG")
                         .help("Context-Free Grammar rules file to use")
                         .required(true)
                         .index(1),
-                ).arg(
-                    Arg::with_name("OUT")
+                )
+                .arg(
+                    Arg::new("OUT")
                         .help("Output file (default to stdout)")
                         .required(false)
                         .index(2),
                 ),
-        ).subcommand(
-            SubCommand::with_name("simplify")
+        )
+        .subcommand(
+            Command::new("simplify")
                 .about("Simplify Context-Free Grammar")
                 .arg(
-                    Arg::with_name("CFG")
+                    Arg::new("CFG")
                         .help("Context-Free Grammar rules file to use")
                         .required(true)
                         .index(1),
-                ).arg(
-                    Arg::with_name("OUT")
+                )
+                .arg(
+                    Arg::new("OUT")
                         .required(false)
                         .help("Output file (default to stdout)")
                         .index(2),
-                ).arg(
-                    Arg::with_name("verbose")
+                )
+                .arg(
+                    Arg::new("verbose")
                         .long("verbose")
-                        .short("v")
+                        .short('v')
                         .help("Verbose output"),
-                ).arg(
-                    Arg::with_name("debug")
+                )
+                .arg(
+                    Arg::new("debug")
                         .long("debug")
-                        .short("d")
+                        .short('d')
                         .help("Debug output"),
-                ).arg(
-                    Arg::with_name("reverse")
+                )
+                .arg(
+                    Arg::new("reverse")
                         .long("reverse")
-                        .short("r")
+                        .short('r')
                         .help("Reverse the order of steps for simplifying"),
-                ).arg(
-                    Arg::with_name("chomsky")
+                )
+                .arg(
+                    Arg::new("chomsky")
                         .long("chomsky")
                         .help("Chomsky Normal Form"),
                 ),
-        ).subcommand(
-            SubCommand::with_name("earley")
+        )
+        .subcommand(
+            Command::new("earley")
                 .about("Check the string via Earley recognizer")
+                .arg(Arg::new("CFG").help("Path to CFG").required(true).index(1))
                 .arg(
-                    Arg::with_name("CFG")
-                        .help("Path to CFG")
-                        .required(true)
-                        .index(1),
-                ).arg(
-                    Arg::with_name("INPUT")
+                    Arg::new("INPUT")
                         .required(false)
                         .help("Input stream (default: stdin)")
                         .index(2),
-                ).arg(
-                    Arg::with_name("simplify")
+                )
+                .arg(
+                    Arg::new("simplify")
                         .long("simplify")
-                        .short("s")
+                        .short('s')
                         .help("Use Simplified Form"),
-                ).arg(
-                    Arg::with_name("chomsky")
+                )
+                .arg(
+                    Arg::new("chomsky")
                         .long("chomsky")
-                        .short("c")
+                        .short('c')
                         .help("Use Chomsky Normal Form"),
                 ),
-        ).subcommand(
-            SubCommand::with_name("cyk")
+        )
+        .subcommand(
+            Command::new("cyk")
                 .about("Check the string via CYK recognizer")
+                .arg(Arg::new("CFG").help("Path to CFG").required(true).index(1))
                 .arg(
-                    Arg::with_name("CFG")
-                        .help("Path to CFG")
-                        .required(true)
-                        .index(1),
-                ).arg(
-                    Arg::with_name("INPUT")
+                    Arg::new("INPUT")
                         .required(false)
                         .help("Input stream (default: stdin)")
                         .index(2),
-                ).arg(
-                    Arg::with_name("parse")
+                )
+                .arg(
+                    Arg::new("parse")
                         .long("parse")
-                        .short("p")
+                        .short('p')
                         .help("Build parse tree"),
                 ),
-        ).subcommand(
-            SubCommand::with_name("dfa")
+        )
+        .subcommand(
+            Command::new("dfa")
                 .about("Check the string via DFA")
                 .arg(
-                    Arg::with_name("DFA")
+                    Arg::new("DFA")
                         .help("Deterministic Finite Automaton definition (as table)")
                         .required(true)
                         .index(1),
-                ).arg(
-                    Arg::with_name("INPUT")
+                )
+                .arg(
+                    Arg::new("INPUT")
                         .required(false)
                         .help("Input stream (default: stdin)")
                         .index(2),
-                ).arg(
-                    Arg::with_name("debug")
+                )
+                .arg(
+                    Arg::new("debug")
                         .long("debug")
-                        .short("d")
+                        .short('d')
                         .help("Debug mode"),
-                ).arg(
-                    Arg::with_name("path")
+                )
+                .arg(
+                    Arg::new("path")
                         .long("path")
-                        .short("p")
+                        .short('p')
                         .help("Show derivation path"),
                 ),
-        ).subcommand(
-            SubCommand::with_name("dpda")
+        )
+        .subcommand(
+            Command::new("dpda")
                 .about("Check the string via DPDA")
                 .arg(
-                    Arg::with_name("DPDA")
+                    Arg::new("DPDA")
                         .help("Deterministic Push Down Automaton definition")
                         .required(true)
                         .index(1),
-                ).arg(
-                    Arg::with_name("INPUT")
+                )
+                .arg(
+                    Arg::new("INPUT")
                         .required(false)
                         .help("Input stream (default: stdin)")
                         .index(2),
                 ),
-        ).subcommand(
-            SubCommand::with_name("dpdt")
+        )
+        .subcommand(
+            Command::new("dpdt")
                 .about("Convert the string via DPDT")
                 .arg(
-                    Arg::with_name("DPDT")
+                    Arg::new("DPDT")
                         .help("Deterministic Push Down Translator definition")
                         .required(true)
                         .index(1),
-                ).arg(
-                    Arg::with_name("INPUT")
+                )
+                .arg(
+                    Arg::new("INPUT")
                         .required(false)
                         .help("Input stream (default: stdin)")
                         .index(2),
                 ),
-        ).subcommand(
-            SubCommand::with_name("coursework")
+        )
+        .subcommand(
+            Command::new("coursework")
                 .about("Course Work #7")
                 .arg(
-                    Arg::with_name("len-min")
+                    Arg::new("len-min")
                         .long("len-min")
-                        .takes_value(true)
+                        .num_args(1)
                         .help("Minimum sequence lenght (default 0)"),
-                ).arg(
-                    Arg::with_name("len-max")
+                )
+                .arg(
+                    Arg::new("len-max")
                         .long("len-max")
-                        .takes_value(true)
+                        .num_args(1)
                         .help("Maximum sequence lenght (default 8)"),
-                ).arg(
-                    Arg::with_name("verbose")
+                )
+                .arg(
+                    Arg::new("verbose")
                         .long("verbose")
-                        .short("v")
+                        .short('v')
                         .help("Show generated sets"),
-                ).arg(
-                    Arg::with_name("CFG")
+                )
+                .arg(
+                    Arg::new("CFG")
                         .help("Context-Free Grammar rules file to use")
                         .required(true)
                         .index(1),
-                ).arg(
-                    Arg::with_name("OUT")
+                )
+                .arg(
+                    Arg::new("OUT")
                         .help("Output file (default to stdout)")
                         .required(false)
                         .index(2),

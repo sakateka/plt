@@ -4,8 +4,8 @@ version = "5.4.0"
 authors = ["Sergey Kacheev <uo0@ya.ru>"]
 
 [dependencies]
-clap = "~2.29.0"
-itertools = "0.7.7"
+clap = "~4.4"
+itertools = "0.12"
 serde = "1.0"
 serde_derive = "1.0"
-serde_yaml = "0.8"
+serde_yaml = "0.9"
