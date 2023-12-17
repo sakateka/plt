@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader};
 use std::fs::File;
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct SDTRule {
     left: String,
@@ -12,16 +13,19 @@ pub struct SDTRule {
     translated: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct SDTRules{
     rules: Vec<SDTRule>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct SDT {
     rules: HashMap<cfg::Production, Vec<cfg::Symbol>>,
 }
 
+#[allow(dead_code)]
 impl SDT {
     pub fn load(input_path: &str) -> io::Result<SDT> {
         let file = BufReader::new(File::open(input_path)?);
@@ -32,13 +36,13 @@ impl SDT {
     where
         R: ::std::marker::Sized,
     {
-        let rules: SDTRules = match serde_yaml::from_reader(r) {
+        let _rules: SDTRules = match serde_yaml::from_reader(r) {
             Ok(sdt) => Ok(sdt),
             Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
         }?;
         todo!();
-        Ok(SDT {
-            rules: HashMap::new(),
-        })
+        //Ok(SDT {
+        //    rules: HashMap::new(),
+        //})
     }
 }

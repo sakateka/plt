@@ -133,7 +133,6 @@ impl fmt::Display for Symbol {
 pub struct Production {
     pub left: Nonterminal,
     pub right: Vec<Symbol>,
-    pub trans: Option<Vec<Symbol>>,
 }
 
 impl AsRef<Production> for Production {
@@ -144,11 +143,7 @@ impl AsRef<Production> for Production {
 
 impl Production {
     pub fn new(l: Nonterminal, r: Vec<Symbol>) -> Production {
-        Production {
-            left: l,
-            right: r,
-            trans: None,
-        }
+        Production { left: l, right: r }
     }
 }
 
@@ -195,6 +190,7 @@ impl CFG {
         CFG::load_from_reader(file)
     }
 
+    #[allow(dead_code)]
     pub fn load_sdt(input_path: &str) -> io::Result<CFG> {
         let file = BufReader::new(File::open(input_path)?);
         CFG::load_sdt_from_reader(file)
@@ -204,6 +200,7 @@ impl CFG {
         CFG::load_cfg_from_reader(r, false)
     }
 
+    #[allow(dead_code)]
     pub fn load_sdt_from_reader<R: Sized + BufRead>(r: R) -> io::Result<CFG> {
         CFG::load_cfg_from_reader(r, true)
     }
@@ -396,11 +393,11 @@ impl CFG {
                                 let mut new = r.clone();
                                 new.right.remove(idx);
                                 // skip new epsilon rule and skip new unit rule
-                                if !new.right.is_empty()
-                                    && !(new.right.len() == 1
+                                if !(new.right.is_empty()
+                                    || new.right.len() == 1
                                         && new.right[0].is_nonterminal()
-                                        && new.right[0].as_nonterminal().unwrap() == &new.left)
-                                    && new_rules.insert(new.clone())
+                                        && new.right[0].as_nonterminal().unwrap() == &new.left
+                                    || !new_rules.insert(new.clone()))
                                 {
                                     changed = true;
                                     source2.insert(new);
@@ -664,9 +661,9 @@ impl CFG {
         // where u₁ and u₂ are not both variables.
         let mut productions = BTreeSet::new();
         for rule in new_productions {
-            if rule.right.iter().all(|x| x.is_nonterminal()) {
-                productions.insert(rule);
-            } else if rule.right.len() == 1 && rule.right[0].is_terminal() {
+            if rule.right.iter().all(|x| x.is_nonterminal())
+                || rule.right.len() == 1 && rule.right[0].is_terminal()
+            {
                 productions.insert(rule);
             } else {
                 let mut new_rule = rule.clone();
