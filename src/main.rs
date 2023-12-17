@@ -63,21 +63,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let grammar = matches.get_one::<String>("CFG").unwrap();
         let cfg = CFG::load(grammar)
             .map(|x| {
-                if matches.contains_id("chomsky") {
+                if matches.get_flag("chomsky") {
                     x.chomsky()
                 } else {
                     x.simplify()
                 }
             })
             .unwrap();
-        let min: u32 = *matches.get_one::<u32>("len-min").unwrap_or(&0);
-        let max: u32 = *matches.get_one::<u32>("len-max").unwrap_or(&8);
-        let left = !matches.contains_id("right");
+        let min: u32 = *matches.get_one::<u32>("len_min").unwrap_or(&0);
+        let max: u32 = *matches.get_one::<u32>("len_max").unwrap_or(&8);
+        let left = !matches.get_flag("right");
         let gen = Generator::new(cfg, min, max, left);
         let mut output_stream = BufWriter::new(get_output_stream(matches.get_one::<String>("OUT")));
         let mut visited = HashSet::new();
         for seq in gen {
-            if !matches.contains_id("all") {
+            if !matches.get_flag("all") {
                 if visited.contains(&seq) {
                     continue;
                 } else {
@@ -99,10 +99,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut output_stream = get_output_stream(matches.get_one::<String>("OUT"));
 
         let verbose = |title: &str, cfg: &CFG| {
-            if matches.contains_id("verbose") {
+            if matches.get_flag("verbose") {
                 eprintln!("{}\n{}", title, cfg);
             }
-            if matches.contains_id("debug") {
+            if matches.get_flag("debug") {
                 eprintln!("{}\n{:?}\n", title, cfg);
             }
         };
@@ -126,7 +126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             cfg
         };
-        if matches.contains_id("reverse") {
+        if matches.get_flag("reverse") {
             cfg = remove_useless_and_unreachable(cfg);
             cfg = remove_epsilon_and_unit(cfg);
         } else {
@@ -135,7 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             cfg = remove_useless_and_unreachable(cfg);
         }
 
-        if matches.contains_id("chomsky") {
+        if matches.get_flag("chomsky") {
             cfg = cfg.chomsky();
             verbose("Chomsky Normal Form", &cfg);
         }
@@ -145,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //// CYK
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("cyk") {
-        let show_path = matches.contains_id("parse");
+        let show_path = matches.get_flag("parse");
 
         let grammar = matches.get_one::<String>("CFG").unwrap();
         let cfg = CFG::load(grammar).unwrap();
@@ -178,10 +178,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else if let Some(matches) = arg_matches.subcommand_matches("earley") {
         let grammar = matches.get_one::<String>("CFG").unwrap();
         let mut cfg = CFG::load(grammar).unwrap();
-        if matches.contains_id("simplify") {
+        if matches.get_flag("simplify") {
             cfg = cfg.simplify()
         }
-        if matches.contains_id("chomsky") {
+        if matches.get_flag("chomsky") {
             cfg = cfg.chomsky()
         }
         let input = get_input_stream(matches.get_one::<String>("INPUT"));
@@ -199,8 +199,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     } else if let Some(matches) = arg_matches.subcommand_matches("dfa") {
         let dfa_table = matches.get_one::<String>("DFA").unwrap();
-        let debug = matches.contains_id("debug");
-        let show_path = matches.contains_id("path");
+        let debug = matches.get_flag("debug");
+        let show_path = matches.get_flag("path");
         let dfa = DFA::load(dfa_table, debug).unwrap();
         let input = get_input_stream(matches.get_one::<String>("INPUT"));
         dfa.check(input, show_path).unwrap();
@@ -326,7 +326,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .write_all(b"OK! The generated sets are equal!\n")
                 .unwrap();
         }
-        if matches.contains_id("verbose") {
+        if matches.get_flag("verbose") {
             let mut result: HashMap<String, (String, String)> = HashMap::new();
             normal_set.iter().for_each(|x| {
                 let key = GeneratedItem(x).to_string();
