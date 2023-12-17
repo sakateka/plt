@@ -36,7 +36,7 @@ pub fn get_input_stream(x: Option<&String>) -> Box<dyn Read> {
     match x {
         Some(x) => {
             let path = Path::new(x);
-            Box::new(File::create(path).unwrap()) as Box<dyn Read>
+            Box::new(File::open(path).unwrap()) as Box<dyn Read>
         }
         None => Box::new(io::stdin()) as Box<dyn Read>,
     }
