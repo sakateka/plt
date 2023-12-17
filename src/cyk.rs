@@ -42,11 +42,7 @@ impl CYKParser {
         let mut table = CYKTable::new(text_len);
 
         for rule in &self.cfg.productions {
-            table
-                .1
-                .entry(&rule.left)
-                .or_insert(HashSet::new())
-                .insert(&rule);
+            table.1.entry(&rule.left).or_default().insert(rule);
             for (idx, ch) in text.chars().enumerate() {
                 if rule.right.len() == 1 && rule.right[0].is_eq_term(ch) {
                     table[idx][idx].insert(&rule.left);
@@ -85,14 +81,10 @@ impl CYKParser {
 
     fn accepts_by_epsilon(&self) -> Option<&cfg::Production> {
         // special case for empty string
-        for rule in &self.cfg.productions {
-            if rule.left == self.cfg.start {
-                if rule.right.len() == 0 {
-                    return Some(rule);
-                }
-            }
-        }
-        None
+        self.cfg
+            .productions
+            .iter()
+            .find(|&rule| rule.left == self.cfg.start && rule.right.is_empty())
     }
 
     pub fn accepts(&self, text: &str) -> bool {
@@ -109,11 +101,7 @@ impl CYKParser {
         let mut table = CYKTable::new(text_len);
 
         for rule in &self.cfg.productions {
-            table
-                .1
-                .entry(&rule.left)
-                .or_insert(HashSet::new())
-                .insert(&rule);
+            table.1.entry(&rule.left).or_default().insert(rule);
             for (i, ch) in text.chars().enumerate() {
                 if rule.right.len() == 1 && rule.right[0].is_eq_term(ch) {
                     table[i][0].insert(&rule.left);
@@ -139,10 +127,9 @@ impl CYKParser {
                                 for n2 in &n2_set {
                                     if rule.right[0].is_eq_nonterm(n1)
                                         && rule.right[1].is_eq_nonterm(n2)
+                                        && table[i][j].insert(&rule.left)
                                     {
-                                        if table[i][j].insert(&rule.left) {
-                                            changed = true;
-                                        }
+                                        changed = true;
                                     }
                                 }
                             }
@@ -201,14 +188,12 @@ impl CYKParser {
             if let Some(rule) = self.rule_with_terminal(chars[i], nonterm, table) {
                 path.push(rule)
             }
-        } else if j > 0 {
-            if let Some((rule, k)) = self.rule_with_nonterminals(i, j, nonterm, table) {
-                path.push(rule);
-                let n1 = rule.right[0].as_nonterminal().unwrap();
-                let n2 = rule.right[1].as_nonterminal().unwrap();
-                self.build_path(chars, i, k, n1, table, path);
-                self.build_path(chars, i + k + 1, j - k - 1, n2, table, path);
-            }
+        } else if let Some((rule, k)) = self.rule_with_nonterminals(i, j, nonterm, table) {
+            path.push(rule);
+            let n1 = rule.right[0].as_nonterminal().unwrap();
+            let n2 = rule.right[1].as_nonterminal().unwrap();
+            self.build_path(chars, i, k, n1, table, path);
+            self.build_path(chars, i + k + 1, j - k - 1, n2, table, path);
         }
     }
 
@@ -247,7 +232,7 @@ impl CYKParser {
                     let n1 = rule.right[0].as_nonterminal().unwrap();
                     let n2 = rule.right[1].as_nonterminal().unwrap();
                     if set_a.contains(n1) && set_b.contains(n2) {
-                        return Some((rule, k as usize));
+                        return Some((rule, k));
                     }
                 }
             }
