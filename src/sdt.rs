@@ -1,4 +1,4 @@
-use cfg;
+use crate::cfg;
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader};
 use std::fs::File;

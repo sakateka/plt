@@ -2,6 +2,7 @@
 name = "plt"
 version = "5.4.0"
 authors = ["Sergey Kacheev <uo0@ya.ru>"]
+edition = "2021"
 
 [dependencies]
 clap = "~4.4"

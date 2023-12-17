@@ -1,4 +1,4 @@
-use cfg;
+use crate::cfg;
 use std::collections::{HashMap, HashSet};
 use std::ops::{Index, IndexMut};
 
