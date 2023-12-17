@@ -1,8 +1,8 @@
-use serde_yaml;
-
 use std::fmt;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
+
+use serde_derive::Deserialize;
 
 #[derive(Debug, PartialEq, Hash, Clone, Copy)]
 pub enum PDTState {

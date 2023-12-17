@@ -1,8 +1,9 @@
+use serde_derive::Deserialize;
+
 use crate::cfg;
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader};
 use std::fs::File;
-use serde_yaml;
 
 #[derive(Debug, Deserialize)]
 pub struct SDTRule {
