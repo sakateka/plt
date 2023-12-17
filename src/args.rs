@@ -1,8 +1,8 @@
-use clap::{arg, value_parser, Arg, ArgAction, Command};
+use clap::{arg, value_parser, ArgAction, Command};
 
 pub fn build_app() -> Command {
     Command::new("plt")
-        .version("5.4.0")
+        .version("5.4.1")
         .author("Sergey Kacheev <uo0@ya.ru>")
         .about("Theory of Programming Languages and Translation Methods")
         .subcommand(
@@ -26,7 +26,7 @@ pub fn build_app() -> Command {
                     arg!(-a --all "Show all sequences together with duplicates")
                         .action(ArgAction::SetTrue),
                 )
-                .arg(arg!(--chomsky "Chomsky Normal Form").action(ArgAction::SetTrue)),
+                .arg(arg!(-c --chomsky "Chomsky Normal Form").action(ArgAction::SetTrue)),
         )
         .subcommand(
             Command::new("simplify")
@@ -44,135 +44,51 @@ pub fn build_app() -> Command {
         .subcommand(
             Command::new("earley")
                 .about("Check the string via Earley recognizer")
-                .arg(Arg::new("CFG").help("Path to CFG").required(true).index(1))
-                .arg(
-                    Arg::new("INPUT")
-                        .required(false)
-                        .help("Input stream (default: stdin)")
-                        .index(2),
-                )
-                .arg(
-                    Arg::new("simplify")
-                        .long("simplify")
-                        .short('s')
-                        .help("Use Simplified Form"),
-                )
-                .arg(
-                    Arg::new("chomsky")
-                        .long("chomsky")
-                        .short('c')
-                        .help("Use Chomsky Normal Form"),
-                ),
+                .arg(arg!(<CFG> "Context-Free Grammar rules file to use"))
+                .arg(arg!([INPUT] "Input stream (default: stdin)"))
+                .arg(arg!(-s --simplify "Use Simplified Form").action(ArgAction::SetTrue))
+                .arg(arg!(-c --chomsky "Chomsky Normal Form").action(ArgAction::SetTrue)),
         )
         .subcommand(
             Command::new("cyk")
                 .about("Check the string via CYK recognizer")
-                .arg(Arg::new("CFG").help("Path to CFG").required(true).index(1))
-                .arg(
-                    Arg::new("INPUT")
-                        .required(false)
-                        .help("Input stream (default: stdin)")
-                        .index(2),
-                )
-                .arg(
-                    Arg::new("parse")
-                        .long("parse")
-                        .short('p')
-                        .help("Build parse tree"),
-                ),
+                .arg(arg!(<CFG> "Context-Free Grammar rules file to use"))
+                .arg(arg!([INPUT] "Input stream (default: stdin)"))
+                .arg(arg!(-p --parse "Build parse tree").action(ArgAction::SetTrue)),
         )
         .subcommand(
             Command::new("dfa")
                 .about("Check the string via DFA")
-                .arg(
-                    Arg::new("DFA")
-                        .help("Deterministic Finite Automaton definition (as table)")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::new("INPUT")
-                        .required(false)
-                        .help("Input stream (default: stdin)")
-                        .index(2),
-                )
-                .arg(
-                    Arg::new("debug")
-                        .long("debug")
-                        .short('d')
-                        .help("Debug mode"),
-                )
-                .arg(
-                    Arg::new("path")
-                        .long("path")
-                        .short('p')
-                        .help("Show derivation path"),
-                ),
+                .arg(arg!(<DFA> "Deterministic Finite Automaton definition (as table)"))
+                .arg(arg!([INPUT] "Input stream (default: stdin)"))
+                .arg(arg!(-d --debug "Debug output").action(ArgAction::SetTrue))
+                .arg(arg!(-p --path "Show derivation path").action(ArgAction::SetTrue)),
         )
         .subcommand(
             Command::new("dpda")
                 .about("Check the string via DPDA")
-                .arg(
-                    Arg::new("DPDA")
-                        .help("Deterministic Push Down Automaton definition")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::new("INPUT")
-                        .required(false)
-                        .help("Input stream (default: stdin)")
-                        .index(2),
-                ),
+                .arg(arg!(<DPDA> "Deterministic Push Down Automaton definition"))
+                .arg(arg!([INPUT] "Input stream (default: stdin)"))
         )
         .subcommand(
             Command::new("dpdt")
                 .about("Convert the string via DPDT")
-                .arg(
-                    Arg::new("DPDT")
-                        .help("Deterministic Push Down Translator definition")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::new("INPUT")
-                        .required(false)
-                        .help("Input stream (default: stdin)")
-                        .index(2),
-                ),
+                .arg(arg!(<DPDT> "Deterministic Push Down Translator definition"))
+                .arg(arg!([INPUT] "Input stream (default: stdin)"))
         )
         .subcommand(
             Command::new("coursework")
                 .about("Course Work #7")
+                .arg(arg!(<CFG> "Context-Free Grammar rules file to use"))
+                .arg(arg!([OUT] "Output file (default to stdout)"))
                 .arg(
-                    Arg::new("len-min")
-                        .long("len-min")
-                        .num_args(1)
-                        .help("Minimum sequence lenght (default 0)"),
+                    arg!(--len_min <min> "Minimum sequence lenght (default 0)")
+                        .value_parser(value_parser!(u32)),
                 )
                 .arg(
-                    Arg::new("len-max")
-                        .long("len-max")
-                        .num_args(1)
-                        .help("Maximum sequence lenght (default 8)"),
+                    arg!(--len_max <max> "Maximum sequence lenght (default 8)")
+                        .value_parser(value_parser!(u32)),
                 )
-                .arg(
-                    Arg::new("verbose")
-                        .long("verbose")
-                        .short('v')
-                        .help("Show generated sets"),
-                )
-                .arg(
-                    Arg::new("CFG")
-                        .help("Context-Free Grammar rules file to use")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    Arg::new("OUT")
-                        .help("Output file (default to stdout)")
-                        .required(false)
-                        .index(2),
-                ),
+                .arg(arg!(-v --verbose "Verbose output").action(ArgAction::SetTrue))
         )
 }
